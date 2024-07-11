@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 });
 
 // 接收来自后台的消息
-chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   console.log('收到来自 ' + (sender.tab ? "content-script(" + sender.tab.url + ")" : "popup或者background") + ' 的消息：', request);
 
   for (const key in request) {
@@ -19,44 +19,20 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   switch (action) {
     case 'sync': getTable()
+
       break;
     case 'start': goToChildPage()
+
       break;
-    case 'reload': reloadTable()
-      break;
+
     case 'logout': childLogout()
-      break;
+
     default:
       break;
   }
+
 });
 
-
-async function reloadTable() {
-  try {
-    // 获取最大页码
-    getMaxPage();
-    // 如果不是最后一页，轮流跳转到最后一页
-    while (currentPage < maxPage) {
-      nextPage();
-      await delay(1000);
-    }
-    // 如果是最后一页，再次获取最大页码
-    getMaxPage();
-    // 如果不是第一页，轮流跳转到第一页
-    while (currentPage > 1) {
-      prevPage();
-      await delay(1000);
-    }
-    // 如果是第一页，再次获取最大页码
-    getMaxPage();
-    // 10秒后重新获取表格数据
-    await delay(90 * 1000);
-    reloadTable();
-  } catch (error) {
-    handleError(error)
-  }
-}
 
 
 
@@ -93,10 +69,10 @@ let publishButton = null;
 
 
 // 获取当前页面的表格数据
-async function getTableAll() {
+async function getTable() {
+  console.log('DOMContentLoaded 页面加载完成！');
 
   try {
-
     // 获取表格的tbody元素
     const tbody = document.querySelector('.douyin-creator-pc-table-tbody');
 
@@ -117,7 +93,7 @@ async function getTableAll() {
       rowData.id = cells[1].textContent.trim();
       rowData.date = cells[2].textContent.trim();
       rowData.management = cells[3].textContent.trim();
-      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
+      rowData.actions = Array.from(cells[4].querySelectorAll('span')).map(span => span.textContent.trim());
 
       // 将rowData对象添加到dataList数组中
       dataList.push(rowData);
@@ -125,10 +101,13 @@ async function getTableAll() {
 
     // 打印收集到的数据
     console.log(dataList);
+    getMaxPage()
+    await delay(1 * 1000)
+    nextPage()
 
 
   } catch (error) {
-    handleError(error)
+    console.error('Error:', error);
     // 重新获取table
     await delay(1 * 1000)
     retryCount++
@@ -137,67 +116,23 @@ async function getTableAll() {
       getTable()
     }
   }
-}
-
-async function getTable() {
-  accountList.length = 0
-  try {
-    // 获取表格的tbody元素
-    const tbody = document.querySelector('.douyin-creator-pc-table-tbody');
-
-    // 获取所有的tr元素
-    const rows = tbody.querySelectorAll('tr');
-
-    // 遍历所有的tr元素
-    rows.forEach((row, col) => {
-      // 创建一个空对象来保存每行的数据
-      const rowData = {};
-
-      // 获取当前行的所有td元素
-      const cells = row.querySelectorAll('td');
-
-      // 获取每个td中的数据，并存储到rowData对象中
-      rowData.avatar = cells[0].querySelector('img').src;
-      rowData.name = cells[0].querySelector('p').textContent.trim();
-      rowData.id = cells[1].textContent.trim();
-      rowData.date = cells[2].textContent.trim();
-      rowData.management = cells[3].textContent.trim();
-      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
-      rowData.sort = col
-
-      // 将rowData对象添加到dataList数组中
-      accountList.push(rowData);
-    });
-
-    // 打印收集到的数据
-    console.log(accountList, 'accountList');
-
-
-  } catch (error) {
-    handleError(error)
-    // 重新获取table
-    await delay(1 * 1000)
-    retryCount++
-
-    if (retryCount < maxRetryCount) {
-      getTable()
-    }
-  }
-
 }
 
 // 获取最大页码数
 function getMaxPage() {
   // 获取分页器的元素
+  // 使用选择器找到目标div元素
   const pageDiv = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small');
 
   if (pageDiv) {
     // 获取div的文本内容
     const pageText = pageDiv.innerText.trim();
-    currentPage = Number(pageText.split('/')[0]);
-    maxPage = Number(pageText.split('/')[1]);
+    console.log(`页码文本: ${pageText}`);
+    currentPage = pageText.split('/')[0]
     console.log('currentPage', currentPage);
+    maxPage = pageText.split('/')[1]
     console.log('maxPage', maxPage);
+
   } else {
     console.log('未找到目标div元素');
   }
@@ -205,14 +140,17 @@ function getMaxPage() {
 
 // 点击上一页
 async function prevPage() {
+  getMaxPage()
   // 如果当前页数不是1，就点击上一页
   if (currentPage > 1) {
+    // 找到按钮文案内容为"发布"的按钮并点击
     const prevPageButton = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-prev');
     if (prevPageButton) {
       prevPageButton.click();
       console.log('prevPageButton clicked');
-      await delay(1000);  // 等待页面加载完成
-      getMaxPage();       // 更新当前页码
+      // getMaxPage()
+      // await delay(1 * 1000)
+      // prevPage()
     } else {
       console.error('prevPageButton not found');
     }
@@ -222,93 +160,106 @@ async function prevPage() {
 }
 
 // 点击下一页
-async function nextPage() {
-  if (currentPage < maxPage) {
+async function nextPage(page) {
+  getMaxPage()
+  if (currentPage * 1 < maxPage * 1) {
+    // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
     const nextPageButton = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-next');
+    console.log('nextPageButton', nextPageButton);
     if (nextPageButton) {
       nextPageButton.click();
+      // getMaxPage()
       console.log('nextPageButton clicked');
-      await delay(1000);  // 等待页面加载完成
-      getMaxPage();       // 更新当前页码
+      // await delay(1 * 1000)
+      // getTable()
     } else {
       console.error('nextPageButton not found');
     }
   } else {
+    isNeedGetData = false
     console.log('已经是最后一页');
+
+    await delay(1 * 1000)
+
+    // TODO: 暂时跳回去
+    // prevPage()
+    // TODO: 跳转到子账号页面
+    // goToChildPage()
   }
 }
 
 // 跳转到某一页
-function goToPage(page) {
-  return new Promise(async (resolve, reject) => {
-    getMaxPage();
-    page = Number(page);
-    if (page < 1 || page > maxPage) {
-      console.error('页码超出范围');
-      reject('页码超出范围');
-      return;
-    }
+async function goToPage(page) {
 
-    while (currentPage !== page) {
-      if (page < currentPage) {
-        await prevPage();
-      } else if (page > currentPage) {
-        await nextPage();
-      }
-    }
-
-    console.log(`已经跳转到第${page}页`);
-    resolve(page);
-  });
+  // 如果传入的页码小于当前页码，就点击上一页
+  if (page < currentPage) {
+    await prevPage();
+    goToPage(page)
+  }
+  // 如果传入的页码大于当前页码，就点击下一页
+  else if (page > currentPage) {
+    await nextPage();
+    goToPage(page)
+  } else {
+    console.log('已经是当前页');
+    return true
+  }
 }
-
-
 
 // 子账号的索引
 const childIndex = 12
-const ID = '42510800572'
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
 
   // 先判断childIndex在第几页
   const pageIndex = Math.ceil(childIndex / 5)
+  console.log('当前账号的pageIndex = ', pageIndex);
+  goToPage(pageIndex)
+  // 跳转去第几页
+  // goToPage(pageIndex)
+  // getMaxPage()
+  // // 如果到了当前页，则开始跳转子页面
+  // if (currentPage * 1 === pageIndex * 1) {
+  //   // class 为 douyin-creator-pc-table的table
+  //   const table = document.querySelector('.douyin-creator-pc-table');
 
-  // 进入对应页码
-  await goToPage(pageIndex)
-  // 获取当前页面的table
-  getTable()
-  if (accountList && accountList.length) {
-    // 获取accountList中id为ID的元素
-    const childAccount = accountList.find(item => item.id === ID)
-    // 获取子页面上导航栏
-    childAccount.actions[0].click()
-  }
+  //   // 获取特定的span元素
+  //   const manageSpan = table.querySelectorAll('tr[role="row"] td:last-child span._Ji1e:first-child');
+
+  //   accountList.push(manageSpan)
+  //   if (accountList && accountList.length) {
+  //     // 点击第一个账号的管理按钮
+  //     manageSpan[0].click();
+
+  //     await delay(4 * 1000)
+  //     // 获取子页面上导航栏
+  //     // getNavigationList()
+  //   }
+  // } else {
+  //   console.log('未到达当前页');
+  //   goToChildPage()
+  // }
+
+
 }
 
-
-const clickIndex = 1
 // 获取子页面上导航栏
 async function getNavigationList() {
 
-  try {
-    const navList = document.querySelector('.semi-navigation-list');
+  // class 为 douyin-creator-pc-table的table
+  const navList = document.querySelector('.semi-navigation-list');
 
-    // 找到navList中的所有li元素
-    const navListItems = navList.querySelectorAll('li')[clickIndex]
-    console.log('navListItems', navListItems);
-    if (navListItems) {
-      navListItems.click()
-      console.log('navListItems clicked');
-
-      // TODO: 点击上传按钮
-      // sendPostRequest()
-    }
-  } catch (error) {
-    handleError(error)
-    // 重新获取table
-    await delay(1 * 1000)
-    getNavigationList()
+  const clickIndex = 1
+  // 找到navList中的所有li元素
+  const navListItems = navList.querySelectorAll('li')[clickIndex]
+  console.log('navListItems', navListItems);
+  if (navListItems) {
+    navListItems.click()
+    console.log('navListItems clicked');
+    await delay(2 * 1000)
+    // TODO: 点击上传按钮
+    sendPostRequest()
   }
 
 }
@@ -468,9 +419,11 @@ async function logout() {
 
 // 工具函数 
 
-// 延迟函数
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+// 延迟函数，传入时间参数
+function delay(time) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time);
+  });
 }
 
 // 将 OSS URL 转换为 File 对象的函数
@@ -548,37 +501,6 @@ async function getNav() {
   console.log(ids);
 }
 
-
-// 错误处理函数，将错误信息存储在 localStorage 中
-function handleError(error) {
-  console.log('发生错误:', error);
-  const errorLogs = JSON.parse(localStorage.getItem('errorLogs')) || [];
-  const errorLog = {
-    message: error.message,
-    stack: error.stack,
-    time: new Date().toISOString()
-  };
-  errorLogs.push(errorLog);
-  localStorage.setItem('errorLogs', JSON.stringify(errorLogs));
-}
-
-// // 示例异步函数，包含错误捕获
-async function someAsyncFunction() {
-  try {
-    // 模拟异步操作
-    await new Promise((resolve, reject) => {
-      setTimeout(() => {
-        reject(new Error('模拟的错误'));
-      }, 1000);
-    });
-  } catch (error) {
-    handleError(error);
-    console.error('发生错误:', error);
-  }
-}
-
-// // 示例调用
-// someAsyncFunction();
 
 
 

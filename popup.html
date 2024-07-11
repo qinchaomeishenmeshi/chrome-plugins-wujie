@@ -1,13 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>获取当前Tab信息</title>
+  <title>Popup</title>
   <script src="popup.js"></script>
+  <style>
+    .action-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      width: 200px;
+      height: 200px;
+    }
+
+    .action-item {
+      width: 100%;
+      margin: 4px auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .action-button {
+      width: 144px;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .action-button:hover {
+      background-color: #0056b3;
+    }
+  </style>
 </head>
+
 <body>
-  <button id="getTabInfo">获取当前Tab信息</button>
-  <p id="tabInfo"></p>
+  <div class="action-container">
+    <div class="action-item">
+      <button id="syncBtn" class="action-button">
+        同步账号
+      </button>
+    </div>
+    <div class="action-item">
+      <button id="startBtn" class="action-button">
+        开始自动化任务
+      </button>
+    </div>
+    <div class="action-item">
+      <button id="reloadBtn" class="action-button">
+        保持登陆
+      </button>
+      </div>
+      <div class="action-item">
+      <button id="logoutBtn" class="action-button">
+        退出代运营
+      </button>
+    </div>
+  </div>
 </body>
+
 </html>

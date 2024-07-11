@@ -13,7 +13,8 @@
     "contextMenus",
     "tabs",
     "notifications",
-    "webRequest"
+    "webRequest",
+    "contentSettings"
   ],
   "host_permissions": [
     "https://*.douyin.com/*",
