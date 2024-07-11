@@ -1,14 +1,16 @@
 
-//  Simulate click on the upload button
+try {
 
-function simulateClick() {
-  const button = document.querySelector('#douyin-creator-master-side-upload-wrap .semi-button');
-  console.log('button', button);
-  if (button) {
-    button.click();
-  } else {
-    console.error('Button not found');
-  }
+  console.log(chrome.tabs, 'chrome');
+  document.getElementById('getTabInfo').addEventListener('click', () => {
+    console.log('getTabInfo clicked');
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeTab = tabs[0];
+      const tabInfo = `URL: ${activeTab.url}\nTitle: ${activeTab.title}`;
+      document.getElementById('tabInfo').innerText = tabInfo;
+    });
+  });
+} catch (error) {
+
+  console.error('Error:', error);
 }
-
-simulateClick()

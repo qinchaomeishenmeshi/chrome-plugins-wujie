@@ -1,86 +1,171 @@
 
-
-// 或者你也可以使用 window.onload
-window.onload = async () => {
-
-  console.log('Page fully loaded by onload event');
-  await delay(10 * 1000)
-  console.log('延时4秒后执行getAccountList');
-  console.log('window.location.href', window.location.href);
+document.addEventListener('DOMContentLoaded', async function () {
+  console.log('DOMContentLoaded 页面加载完成！');
+  await delay(4 * 1000)
+  console.log(chrome.tabs, 'chrome');
   // 获取页面上账号信息table的数据
   if (window.location.href === 'https://creator.douyin.com/creator-micro/home') {
 
-    getAccountList()
-  } if (window.location.href === 'http://58.49.17.106:13276/#/config/videotemplatescript') {
-
-    checkHover()
+    // getAccountList()
+    // 没有数据时获取table
+    if (isNeedGetData) {
+      getTable()
+    } else {
+      if (!pageFlag) {
+        goToChildPage()
+      }
+    }
   }
   else {
+
     // getNavigationList()
     childLogout()
   }
-};
-
-// 延迟函数，传入时间参数
-function delay(time) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, time);
-  });
-}
-
-// 将 OSS URL 转换为 File 对象的函数
-async function urlToFile(url, fileName, mimeType) {
-  // 使用 fetch 获取文件的 Blob 数据
-  const response = await fetch(url);
-  const blob = await response.blob();
-
-  // 将 Blob 转换为 File 对象
-  return new File([blob], fileName, { type: mimeType });
-}
-
-// 模拟鼠标移动到指定坐标
-function simulateMouseMove(x, y) {
-  const mouseMoveEvent = new MouseEvent('mousemove', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x,
-    clientY: y
-  });
-
-  const mouseEnterEvent = new MouseEvent('mouseenter', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x,
-    clientY: y
-  });
-
-  const mouseOverEvent = new MouseEvent('mouseover', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x + 2,
-    clientY: y + 2
-  });
+});
 
 
-  const targetElement = document.elementFromPoint(x, y);
-  console.log(targetElement, 'targetElement');
-  if (targetElement) {
-    targetElement.dispatchEvent(mouseMoveEvent);
-    targetElement.dispatchEvent(mouseEnterEvent);
-    targetElement.dispatchEvent(mouseOverEvent);
-    console.log(`Simulated mouse move and enter to: (${x}, ${y})`);
-  } else {
-    console.error('No element found at the specified coordinates:', x, y);
-  }
-}
+
+
+
 
 // 账号列表
 const accountList = []
-// 获取页面上账号信息table的数据
-async function getAccountList() {
+
+
+const pageFlag = true
+// 是否需要获取数据
+let isNeedGetData = true
+// 创建一个空数组来保存收集到的数据
+const dataList = [];
+// 记录当前页数
+let currentPage = 1;
+// 记录最大页数
+let maxPage = 1;
+// 重试次数
+let retryCount = 0;
+// 最大重试次数
+const maxRetryCount = 5;
+
+const fileName = 'file.mp4'; // 指定文件名
+const mimeType = 'video/mp4'; // 指定 MIME 类型
+// 文件编号
+const fileNo = 'VIDEO240702112'
+// 文件路径
+let filePath = ''
+// 发布按钮
+let publishButton = null;
+
+
+
+// 获取当前页面的表格数据
+async function getTable() {
+  console.log('DOMContentLoaded 页面加载完成！');
+
+  try {
+    // 获取表格的tbody元素
+    const tbody = document.querySelector('.douyin-creator-pc-table-tbody');
+
+    // 获取所有的tr元素
+    const rows = tbody.querySelectorAll('tr');
+
+    // 遍历所有的tr元素
+    rows.forEach(row => {
+      // 创建一个空对象来保存每行的数据
+      const rowData = {};
+
+      // 获取当前行的所有td元素
+      const cells = row.querySelectorAll('td');
+
+      // 获取每个td中的数据，并存储到rowData对象中
+      rowData.avatar = cells[0].querySelector('img').src;
+      rowData.name = cells[0].querySelector('p').textContent.trim();
+      rowData.id = cells[1].textContent.trim();
+      rowData.date = cells[2].textContent.trim();
+      rowData.management = cells[3].textContent.trim();
+      rowData.actions = Array.from(cells[4].querySelectorAll('span')).map(span => span.textContent.trim());
+
+      // 将rowData对象添加到dataList数组中
+      dataList.push(rowData);
+    });
+
+    // 打印收集到的数据
+    console.log(dataList);
+    getMaxPage()
+    await delay(1 * 1000)
+    nextPage()
+
+
+  } catch (error) {
+    console.error('Error:', error);
+    // 重新获取table
+    await delay(1 * 1000)
+    retryCount++
+
+    if (retryCount < maxRetryCount) {
+      getTable()
+    }
+  }
+}
+
+// 获取最大页码数
+function getMaxPage() {
+  // 获取分页器的元素
+  // 使用选择器找到目标div元素
+  const pageDiv = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small');
+
+  if (pageDiv) {
+    // 获取div的文本内容
+    const pageText = pageDiv.innerText.trim();
+    console.log(`页码文本: ${pageText}`);
+    currentPage = pageText.split('/')[0]
+    console.log('currentPage', currentPage);
+    maxPage = pageText.split('/')[1]
+    console.log('maxPage', maxPage);
+
+  } else {
+    console.log('未找到目标div元素');
+  }
+}
+
+// 点击上一页
+function prevPage() {
+  // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
+  const prevPageButton = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-prev');
+  console.log('prevPageButton', prevPageButton);
+  if (prevPageButton) {
+    prevPageButton.click();
+    console.log('prevPageButton clicked');
+
+  } else {
+    console.error('prevPageButton not found');
+  }
+}
+
+// 点击下一页
+async function nextPage() {
+  if (currentPage * 1 < maxPage * 1) {
+    // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
+    const nextPageButton = document.querySelector('.douyin-creator-pc-page-item.douyin-creator-pc-page-next');
+    console.log('nextPageButton', nextPageButton);
+    if (nextPageButton) {
+      nextPageButton.click();
+      console.log('nextPageButton clicked');
+      await delay(1 * 1000)
+      getTable()
+    } else {
+      console.error('nextPageButton not found');
+    }
+  } else {
+    isNeedGetData = false
+    console.log('已经是最后一页');
+    await delay(1 * 1000)
+    goToChildPage()
+  }
+}
+
+
+// 点击管理跳转子账号页面
+async function goToChildPage() {
   // class 为 douyin-creator-pc-table的table
   const table = document.querySelector('.douyin-creator-pc-table');
 
@@ -89,18 +174,17 @@ async function getAccountList() {
 
   accountList.push(manageSpan)
   if (accountList && accountList.length) {
-    console.log('accountList', accountList);
     // 点击第一个账号的管理按钮
     manageSpan[0].click();
 
-    await delay(6 * 1000)
-
+    await delay(4 * 1000)
+    // 获取子页面上导航栏
     getNavigationList()
   }
 
 }
 
-// 获取页面上导航栏的数据
+// 获取子页面上导航栏
 async function getNavigationList() {
 
   // class 为 douyin-creator-pc-table的table
@@ -115,17 +199,12 @@ async function getNavigationList() {
     console.log('navListItems clicked');
     await delay(2 * 1000)
     // TODO: 点击上传按钮
-    // sendPostRequest()
+    sendPostRequest()
   }
 
 }
 
-const fileName = 'file.mp4'; // 指定文件名
-const mimeType = 'video/mp4'; // 指定 MIME 类型
-// 文件编号
-const fileNo = 'VIDEO240702112'
-// 文件路径
-let filePath = ''
+
 
 // 通过接口获取文件路径
 function sendPostRequest() {
@@ -142,7 +221,7 @@ function sendPostRequest() {
       console.log(data, '接口请求返回的data');
       if (data.code === 200) {
         filePath = data.data.filePath
-        getUploadInput();
+        toUpload();
       }
     })
     .catch(error => {
@@ -151,7 +230,7 @@ function sendPostRequest() {
 }
 
 // 获取上传按钮
-function getUploadInput() {
+function toUpload() {
 
   urlToFile(filePath, fileName, mimeType)
     .then(async (file) => {
@@ -185,48 +264,8 @@ function getUploadInput() {
 
 }
 
-let publishButton = null;
-// // 点击发布按钮
-// function clickPublish() {
-//   // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
-//   const publishButtons = document.querySelectorAll('button');
-//   console.log('publishButtons', publishButtons);
 
 
-//   // 遍历按钮，查找内容为 "发布" 的按钮
-//   publishButtons.forEach(button => {
-//     if (button.textContent.trim() === '发布') {
-//       publishButton = button;
-//     }
-//   });
-
-//   if (publishButton) {
-//     console.log('找到发布按钮:', publishButton);
-//     checkUploadVideo();
-
-//   } else {
-//     console.log('未找到发布按钮');
-//   }
-// }
-
-// // 找到页面的video元素并监听加载事件，等待加载完成点击发布按钮
-// function checkUploadVideo() {
-//   const videoElement = document.querySelectorAll('video')[0];
-//   console.log('videoElement', videoElement);
-//   if (videoElement) {
-//     console.log('videoElement loaded');
-//     videoElement.addEventListener('loadeddata', () => {
-//       console.log('videoElement loadeddata');
-//       if (publishButton) {
-//         publishButton.click();
-//         console.log('publishButton clicked');
-//       }
-//     }
-//     );
-//   } else {
-//     console.error('videoElement not found');
-//   }
-// }
 
 
 function checkUploadVideo() {
@@ -252,7 +291,7 @@ function checkUploadVideo() {
   }
 }
 
-function handleVideoLoad(_videoElement) {  // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
+async function handleVideoLoad(_videoElement) {  // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
   const publishButtons = document.querySelectorAll('button');
   console.log('publishButtons', publishButtons);
 
@@ -267,7 +306,10 @@ function handleVideoLoad(_videoElement) {  // 找到页面card-container-creator
   if (publishButton) {
     console.log('找到发布按钮:', publishButton);
 
-    // publishButton.click();
+    publishButton.click();
+
+    await delay(4 * 1000)
+    childLogout()
 
   } else {
     console.log('未找到发布按钮');
@@ -276,95 +318,38 @@ function handleVideoLoad(_videoElement) {  // 找到页面card-container-creator
 }
 
 // 退出登录
-// 退出登录
-function childLogout() {
+async function childLogout() {
 
   // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
   const logoutButton = document.querySelector('.semi-navigation-footer .semi-avatar');
 
   console.log('logoutButton', logoutButton);
   if (logoutButton) {
-
     // 获取按钮的具体位置
     const logoutButtonRect = logoutButton.getBoundingClientRect();
     console.log('logoutButtonRect', logoutButtonRect);
     simulateMouseMove(logoutButtonRect.x + (logoutButtonRect.width / 2), logoutButtonRect.y + (logoutButtonRect.height / 2));
-    logoutButton.click();
     console.log('logoutButton clicked');
-    getLogoutButton()
+    logout()
   } else {
     console.error('logoutButton not found');
   }
 }
 
 // 获取退出按钮的元素
-async function getLogoutButton() {
-  await delay(4 * 1000)
+async function logout() {
+  await delay(2 * 1000)
   const portalButton = document.querySelector('.semi-portal');
   console.log('portalButton', portalButton);
-  const logoutButton = portalButton.querySelector('.logout');
-  console.log('logoutButton', logoutButton);
-  if (logoutButton) {
-    logoutButton.click();
-    console.log('logoutButton clicked');
+  const logout = portalButton.querySelector('.logout');
+  console.log('logout', logout);
+
+  if (logout) {
+    // logout.click();
+    pageFlag = false
+    console.log('logout clicked');
   } else {
-    console.error('logoutButton not found');
-  }
-}
-
-
-
-function checkHover() {
-  const hoverElement = document.querySelector('.template-card:first-child');
-  console.log('hoverElement', hoverElement);
-  if (hoverElement) {
-    // 模拟鼠标移入
-    const hoverElementRect = hoverElement.getBoundingClientRect();
-    console.log('hoverElementRect', hoverElementRect);
-    simulateMouseMove(hoverElementRect.x + (hoverElementRect.width / 2), hoverElementRect.y + (hoverElementRect.height / 2));
-
-  } else {
-    console.error('hoverElement not found');
-  }
-
-}
-
-
-
-
-/****** /
-
-// 示例用法
-const fileName = 'file.mp4'; // 指定文件名
-const mimeType = 'video/mp4'; // 指定 MIME 类型
-// 文件编号
-const fileNo = 'VIDEO240702112'
-// 文件路径
-let filePath = ''
-
-
-
-
-function getUploadBtnById() {
-  // 通过id获取按钮元素
-  // douyin-creator-pc-table-tbody
-
-
-  const button = document.querySelector('#douyin-creator-master-side-upload');
-  console.log('document', document);
-  console.log('button', button);
-  if (button) {
-    button.click();
-    console.log('button clicked');
-
-    // 延时2秒后执行getUploadInput
-    setTimeout(() => {
-      console.log('延时2秒后执行getUploadInput', window.location.href);
-      sendPostRequest()
-    }, 4000);
-
-  } else {
-    console.error('Button not found');
+    console.error('logout not found');
   }
 }
 
@@ -372,41 +357,61 @@ function getUploadBtnById() {
 
 
 
+// 工具函数 
 
-
-
-
-// 找到class 为 editor-kit-editor-container 下的input输入框
-function findInput() {
-  const inputElement = document.querySelectorAll('.editor-kit-editor-container input')[0]
-  console.log('inputElement', inputElement);
-  if (inputElement) {
-    // 给输入框填入内容
-    inputElement.value = 'Hello World';
-    console.log('inputElement Hello World');
-  } else {
-    console.error('inputElement not found');
-  }
+// 延迟函数，传入时间参数
+function delay(time) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time);
+  });
 }
 
+// 将 OSS URL 转换为 File 对象的函数
+async function urlToFile(url, fileName, mimeType) {
+  // 使用 fetch 获取文件的 Blob 数据
+  const response = await fetch(url);
+  const blob = await response.blob();
 
-
-
-// 检查上传的视频文件在页面是否加载完毕
-function checkUploadVideo() {
-  findInput();
-  const videoElement = document.querySelectorAll('video')[0];
-  console.log('videoElement', videoElement);
-  if (videoElement) {
-    console.log('videoElement loaded');
-
-  } else {
-    console.error('videoElement not found');
-  }
+  // 将 Blob 转换为 File 对象
+  return new File([blob], fileName, { type: mimeType });
 }
 
+// 模拟鼠标移动到指定坐标
+function simulateMouseMove(x, y) {
+// const mouseMoveEvent = new MouseEvent('mousemove', {
+//   view: window,
+//   bubbles: true,
+//   cancelable: true,
+//   clientX: x,
+//   clientY: y
+// });
+
+  const mouseEnterEvent = new MouseEvent('mouseenter', {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: y
+  });
+
+  const mouseOverEvent = new MouseEvent('mouseover', {
+    view: window,
+    bubbles: true,
+    cancelable: true,
+    clientX: x + 3,
+    clientY: y + 3
+  });
 
 
-
-*/
+  const targetElement = document.elementFromPoint(x, y);
+  console.log(targetElement, 'targetElement');
+  if (targetElement) {
+    // targetElement.dispatchEvent(mouseMoveEvent);
+    targetElement.dispatchEvent(mouseEnterEvent);
+    targetElement.dispatchEvent(mouseOverEvent);
+    console.log(`Simulated mouse move and enter to: (${x}, ${y})`);
+  } else {
+    console.error('No element found at the specified coordinates:', x, y);
+  }
+}
 

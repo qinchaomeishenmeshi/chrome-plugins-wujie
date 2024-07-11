@@ -1,27 +1,44 @@
 {
   "manifest_version": 3,
-  "name": "Page Load Listener Extension",
+  "name": "wujie",
   "version": "1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": [
     "activeTab",
+    "tabs",
     "scripting",
-    "storage"
+    "storage",
+    "contextMenus",
+    "tabs",
+    "notifications",
+    "webRequest"
   ],
   "host_permissions": [
     "https://*.douyin.com/*",
-    "http://*/",
-    "https://*/"
+    "http://*/*",
+    "https://*/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://*.douyin.com/*",
-        "http://*/",
-        "https://*/"
+        "http://*/*",
+        "https://*/*"
       ],
       "js": [
         "content.js"
-      ]
+      ],
+      "run_at": "document_start"
     }
-  ]
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon_16.png",
+      "48": "images/icon_48.png",
+      "128": "images/icon_128.png"
+    }
+  }
 }
