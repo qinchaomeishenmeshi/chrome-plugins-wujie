@@ -7,13 +7,27 @@
   <title>Popup</title>
   <script src="popup.js"></script>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body,
+    #root {
+      height: 100%;
+      min-height: 100%;
+      width: auto;
+      min-width: 164px;
+      background-color: #fff;
+    }
+
     .action-container {
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      width: 200px;
-      height: 200px;
     }
 
     .action-item {
@@ -41,28 +55,31 @@
 </head>
 
 <body>
-  <div class="action-container">
-    <div class="action-item">
-      <button id="syncBtn" class="action-button">
-        同步账号
-      </button>
-    </div>
-    <div class="action-item">
-      <button id="startBtn" class="action-button">
-        开始自动化任务
-      </button>
-    </div>
-    <div class="action-item">
-      <button id="reloadBtn" class="action-button">
-        保持登陆
-      </button>
+  <div id="root">
+    <div class="action-container">
+      <div class="action-item">
+        <button id="syncBtn" class="action-button">
+          同步账号
+        </button>
       </div>
       <div class="action-item">
-      <button id="logoutBtn" class="action-button">
-        退出代运营
-      </button>
-    </div>
+        <button id="startBtn" class="action-button">
+          开始自动化任务
+        </button>
+      </div>
+      <div class="action-item">
+        <button id="reloadBtn" class="action-button">
+          保持登陆
+        </button>
+      </div>
+      <div class="action-item">
+        <button id="logoutBtn" class="action-button">
+          退出代运营
+        </button>
+        </div>
+      </div>
   </div>
+
 </body>
 
 </html>
