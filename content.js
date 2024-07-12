@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   console.log('action', action);
 
   switch (action) {
-    case 'sync': getTable()
+    case 'sync': getTableAll()
       break;
     case 'start': goToChildPage()
       break;
@@ -91,50 +91,63 @@ let filePath = ''
 let publishButton = null;
 
 
-
 // 获取当前页面的表格数据
 async function getTableAll() {
-
   try {
-
     // 获取表格的tbody元素
     const tbody = document.querySelector('.douyin-creator-pc-table-tbody');
 
-    // 获取所有的tr元素
-    const rows = tbody.querySelectorAll('tr');
+    if (tbody) {
+      // 获取所有的tr元素
+      const rows = tbody.querySelectorAll('tr');
 
-    // 遍历所有的tr元素
-    rows.forEach(row => {
-      // 创建一个空对象来保存每行的数据
-      const rowData = {};
+      // 遍历所有的tr元素
+      rows.forEach(row => {
+        // 创建一个空对象来保存每行的数据
+        const rowData = {};
 
-      // 获取当前行的所有td元素
-      const cells = row.querySelectorAll('td');
+        // 获取当前行的所有td元素
+        const cells = row.querySelectorAll('td');
 
-      // 获取每个td中的数据，并存储到rowData对象中
-      rowData.avatar = cells[0].querySelector('img').src;
-      rowData.name = cells[0].querySelector('p').textContent.trim();
-      rowData.id = cells[1].textContent.trim();
-      rowData.date = cells[2].textContent.trim();
-      rowData.management = cells[3].textContent.trim();
-      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
+        // 获取每个td中的数据，并存储到rowData对象中
+        rowData.avatar = cells[0].querySelector('img').src;
+        rowData.name = cells[0].querySelector('p').textContent.trim();
+        rowData.id = cells[1].textContent.trim();
+        rowData.date = cells[2].textContent.trim();
+        rowData.management = cells[3].textContent.trim();
+        rowData.actions = Array.from(cells[4].querySelectorAll('span')).map(span => span.textContent.trim());
 
-      // 将rowData对象添加到dataList数组中
-      dataList.push(rowData);
-    });
+        // 将rowData对象添加到dataList数组中
+        dataList.push(rowData);
+      });
 
-    // 打印收集到的数据
-    console.log(dataList);
+      // 打印收集到的数据
+      console.log(dataList);
 
+      // 获取最大页码
+      getMaxPage();
+
+      // 递归调用获取下一页数据
+      if (currentPage < maxPage) {
+        await nextPage();
+        await getTableAll();
+      } else {
+        console.log('所有页面的数据已获取完毕');
+      }
+    } else {
+      throw new Error('未找到表格的tbody元素');
+    }
 
   } catch (error) {
-    handleError(error)
+    handleError(error);
     // 重新获取table
-    await delay(1 * 1000)
-    retryCount++
+    await delay(1000);
+    retryCount++;
 
     if (retryCount < maxRetryCount) {
-      getTable()
+      await getTableAll();
+    } else {
+      console.error('重试次数已达上限');
     }
   }
 }
@@ -236,6 +249,7 @@ async function nextPage() {
   } else {
     console.log('已经是最后一页');
   }
+  await delay(1000); // 等待页面加载
 }
 
 // 跳转到某一页
