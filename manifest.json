@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "wujie",
+  "name": "自动发布douyin",
   "version": "1.0",
   "background": {
     "service_worker": "background.js"
@@ -10,23 +10,17 @@
     "tabs",
     "scripting",
     "storage",
-    "contextMenus",
-    "tabs",
-    "notifications",
     "webRequest",
     "contentSettings"
   ],
   "host_permissions": [
-    "https://*.douyin.com/*",
     "http://*/*",
     "https://*/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://*.douyin.com/*",
-        "http://*/*",
-        "https://*/*"
+        "https://*.douyin.com/*"
       ],
       "js": [
         "content.js"

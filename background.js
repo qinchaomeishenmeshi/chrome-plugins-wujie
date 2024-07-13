@@ -4,6 +4,19 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   console.log(tab, '当前tab');
 });
 
+// chrome.runtime.onMessage.addListener((message, callback) => {
+//   const tabId = getForegroundTabId();
+//   if (message.data === "setAlarm") {
+//     chrome.alarms.create({delayInMinutes: 5})
+//   } else if (message.data === "runLogic") {
+//     chrome.scripting.executeScript({file: 'logic.js', tabId});
+//   } else if (message.data === "changeColor") {
+//     chrome.scripting.executeScript(
+//         {func: () => document.body.style.backgroundColor="orange", tabId});
+//   };
+// });
+
+
 chrome.action.onClicked.addListener((tab) => {
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
