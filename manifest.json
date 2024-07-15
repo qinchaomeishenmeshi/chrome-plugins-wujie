@@ -11,7 +11,8 @@
     "scripting",
     "storage",
     "webRequest",
-    "contentSettings"
+    "contentSettings",
+    "notifications"
   ],
   "host_permissions": [
     "http://*/*",

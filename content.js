@@ -1,16 +1,24 @@
 
 
-
+/**
+ * @description: 抖音创作中心自动化脚本，用于自动填写表单并发布视频
+ * 同步账号
+ * 获取任务
+ * 上传视频
+ * 发布视频
+ * 修改任务状态
+ * 退出登录
+ * */
 // 子账号首页
 const childHomePage = 'https://creator.douyin.com/'
 // 子账号内容管理页码
 const childContentPage = 'https://creator.douyin.com/content/manage'
 // 子账号上传页面
-// const childUploadPage = 'https://creator.douyin.com/content/'
-const childUploadPage = 'https://creator.douyin.com/creator-micro/content/upload'
+const childUploadPage = 'https://creator.douyin.com/content/'
 // 子账号发布页面
-const childPublishPage = 'https://creator.douyin.com/creator-micro/content/publish?enter_from=publish_page'
-// const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+// 发布后的页面
+const childPublishAfterPage = 'https://creator.douyin.com/content/manage?enter_from=publish'
 
 
 function waitForPageLoad() {
@@ -27,7 +35,7 @@ function waitForPageLoad() {
 
 async function init() {
   await waitForPageLoad();
-  console.warn('Page fully loaded---' + window.location.href);
+  console.warn('页面加载成功。。。');
   switch (window.location.href) {
     case childHomePage:
       // 点击内容管理按钮
@@ -35,21 +43,24 @@ async function init() {
 
       break;
     case childUploadPage:
-      console.log('childUploadPage')
+      // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
+      // 进入子页面先清空历史缓存数据
+      await removeStorageKey()
+      console.log('清空历史缓存数据');
       //  点击上传按钮
       getUploadFileFn()
 
       break;
 
-    // case childContentPage:
-    //   // 退出代运营状态
-    //   childLogout()
-    //   break
+    case childContentPage:
+      // 退出代运营状态
+      childLogout()
+      break
 
     case childPublishPage:
+      // 点击发布按钮
       handleInputCache()
-      // autoFillForm()
       break
 
     default:
@@ -85,7 +96,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       getTableAll()
       break
     case 'start':
-      goToChildPage()
+      getTask()
       break
     case 'reload':
       reloadTable()
@@ -351,35 +362,46 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-  await getTask()
-  const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {}
-  const { dyUserId, filePath, taskName } = task
-  console.log({ dyUserId, filePath, taskName })
-  const dataLists = JSON.parse(localStorage.getItem('dataList'))
-  const childIndex = dataLists.findIndex((item) => item.dyAccountNo === dyUserId)
+
+  const task = parseJSON(localStorage.getItem('task'), {})
+  const dataLists = parseJSON(localStorage.getItem('dataList'), [])
+  const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
+  console.log(childIndex, 'childIndex');
   // 先判断childIndex在第几页
-  const pageIndex = Math.ceil(childIndex / 5)
+  if (childIndex === -1) {
+    console.log(' 子账号没找到 ');
+    return
+  }
+  // 每页5个元素，计算元素所在的页码
+  const itemsPerPage = 5;
+  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage); // 使用 (childIndex + 1) 确保正确的页码计算
 
   // 进入对应页码
   await goToPage(pageIndex)
+
   // 获取当前页面的table
   getTable()
   if (accountList && accountList.length) {
     // 获取accountList中id为ID的元素
-    const childAccount = accountList.find((item) => item.dyAccountNo === dyUserId)
+    const childAccount = accountList.find((item) => item.dyAccountNo === task.dyUserId)
+    console.log(childAccount, 'childAccount');
     // 获取子页面上导航栏
-    childAccount.actions[0].click()
+    childAccount?.actions[0].click()
   }
 }
 
 // 获取要开始的任务
 async function getTask() {
   try {
-
     const api = '/admin/autopublishtask/getNoPublicData'
     const res = await $Request(api)
-    // 存储到localStorage
+    if (!res) {
+      messageCreate('没有新的任务')
+      return
+    }
     localStorage.setItem('task', JSON.stringify(res))
+    // 进入子账号页面
+    goToChildPage()
   } catch (error) {
     $handleError(error)
   }
@@ -404,29 +426,29 @@ async function getNavigationList() {
 
 // 通过接口获取文件路径
 async function getUploadFileFn() {
+  // 获取任务数据
+  const task = parseJSON(localStorage.getItem('task'), {})
+  const { filePath, taskName } = task
+
   try {
-    const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {}
-    const { filePath, taskName } = task
-    console.log(filePath)
-    if (filePath) {
-      const file = await urlToFile(filePath, taskName)
-      const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', { isAll: true })
 
-      if (inputElement[0]) {
-        const dataTransfer = new DataTransfer()
-        dataTransfer.items.add(file)
-        inputElement[0].files = dataTransfer.files
+    const file = await urlToFile(filePath, taskName)
+    // 获取上传按钮，并将file上传
+    const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', { isAll: true })
+    if (inputElement[0]) {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(file)
+      inputElement[0].files = dataTransfer.files
 
-        // 触发 change 事件以确保上传组件检测到文件
-        const event = new Event('change', { bubbles: true })
-        inputElement[0].dispatchEvent(event)
+      // 触发 change 事件以确保上传组件检测到文件
+      const event = new Event('change', { bubbles: true })
+      inputElement[0].dispatchEvent(event)
 
-        console.log('File uploaded successfully')
-        // 检查视频是否已经加载好
-        checkUploadVideo()
-      } else {
-        console.error('Upload input element not found')
-      }
+      console.log('File uploaded successfully')
+      // 检查视频是否已经加载好
+      checkUploadVideo()
+    } else {
+      console.error('Upload input element not found')
     }
 
   } catch (error) {
@@ -436,91 +458,31 @@ async function getUploadFileFn() {
 }
 
 
-
+// 上传后检查是否加载成功
 async function checkUploadVideo() {
-  const videoElement = await waitForElement('video')
-
-
-  if (videoElement) {
-    // 检查视频是否已经加载好
-    if (videoElement.readyState >= 3) {
-      console.log('videoElement already loaded')
-      await delay(2000)
-      // 上传后强制刷新写入缓存数据方便后边修改缓存数据
-      window.location.reload()
+  try {
+    const videoElement = await waitForElement('video')
+    if (videoElement) {
+      // 检查视频是否已经加载好
+      if (videoElement.readyState >= 3) {
+        console.log('videoElement already loaded')
+        reloadPage(2 * 1000)
+      } else {
+        console.log('videoElement not yet loaded, adding event listener')
+        videoElement.addEventListener('loadeddata', async () => {
+          console.log('videoElement loadeddata')
+          reloadPage(2 * 1000)
+        })
+      }
     } else {
-      console.log('videoElement not yet loaded, adding event listener')
-      videoElement.addEventListener('loadeddata', async () => {
-        console.log('videoElement loadeddata')
-        // 上传后强制刷新写入缓存数据方便后边修改缓存数据
-        await delay(2000)
-        window.location.reload()
-      })
+      // 如果视频元素不存在，输出错误信息,并继续调用checkUploadVideo
+      console.error('videoElement not found')
+      setTimeout(checkUploadVideo, 2000)
     }
-  } else {
-    // 如果视频元素不存在，输出错误信息,并继续调用checkUploadVideo
-    console.error('videoElement not found')
-    setTimeout(checkUploadVideo, 1000)
+  } catch (error) {
+    $handleError(error)
   }
 }
-
-function simulateChineseInputInEditor(text) {
-  const editor = document.querySelector('.outerdocbody .editor-kit-container[contenteditable="true"]');
-
-  if (!editor) {
-    console.error('Editor not found');
-    return;
-  }
-
-  // 设置编辑器内容
-  editor.innerHTML = `<div class="ace-line" data-node="true"><div data-line-wrapper="true" dir="auto"><span class="" data-leaf="true"><span data-string="true" data-enter="true">${text}</span></span></div></div>`;
-
-  // 触发 input 和 change 事件
-  const inputEvent = new Event('input', { bubbles: true });
-  editor.dispatchEvent(inputEvent);
-
-  const changeEvent = new Event('change', { bubbles: true });
-  editor.dispatchEvent(changeEvent);
-}
-
-
-// // 视频加载完毕后写入缓存准备发布
-// async function handleInputCache(_videoElement) {
-
-//   try {
-//     // 重新写入缓存
-//     const cacheFlag = localStorage.getItem('isResetCache')
-//     console.log(cacheFlag, 'cacheFlag');
-//     const flag = cacheFlag > 0 ? true : await autoFillForm();
-//     //  设置localStorage已写入新的缓存
-//     if (flag) {
-//       console.log('表单自动填写成功');
-//       // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
-//       const publishButtons = await waitForElement('button', { isAll: true })
-//       // 遍历按钮，查找内容为 "发布" 的按钮
-//       publishButtons.forEach((button) => {
-//         if (button.textContent.trim() === '发布') {
-//           publishButton = button
-//         }
-//       })
-
-//       if (publishButton) {
-//         console.log('点击发布按钮')
-
-//         // publishButton.click()
-//         // 进入内容管理页面
-//         // window.location.href = childContentPage
-//       } else {
-//         console.error('未找到发布按钮')
-//       }
-//     } else {
-//       console.log('表单自动填写失败');
-//     }
-//   } catch (error) {
-//     console.error('表单自动填写过程中出现错误:', error);
-//   }
-
-// }
 
 // 视频加载完毕后写入缓存准备发布
 async function handleInputCache(_videoElement) {
@@ -530,11 +492,11 @@ async function handleInputCache(_videoElement) {
     console.log(cacheFlag, 'cacheFlag');
 
     if (cacheFlag !== '1') {
+
       const flag = await autoFillForm();
       if (flag) {
-        console.log('表单自动填写成功');
-        // 设置标志位，表明已经填写过表单
-        localStorage.setItem('isResetCache', '1');
+
+        await delay(2000)
         // 刷新页面
         window.location.reload();
       } else {
@@ -544,10 +506,15 @@ async function handleInputCache(_videoElement) {
       // 已经填写过表单，进行发布操作
       console.log('表单已自动填写，进行发布操作');
       const publishButton = await findPublishButton();
+
       if (publishButton) {
+        publishSuccess()
         console.log('点击发布按钮');
+
         publishButton.click();
-        // 进入内容管理页面
+
+
+        // 点击发布按钮后，进入内容管理页面
         // window.location.href = childContentPage;
       } else {
         console.error('未找到发布按钮');
@@ -572,78 +539,49 @@ async function findPublishButton() {
 
 
 // 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
-// async function autoFillForm() {
-//   localStorage.setItem('isResetCache', 1);
-//   return new Promise(async (resolve, reject) => {
-//     let flag = false;
-//     try {
-//       // 获取任务数据
-//       const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {};
-//       const { taskName, remark, sendTime, topicName } = task;
-//       console.log(task, 'task');
-
-//       // 获取缓存数据
-//       const { type, cache } = JSON.parse(localStorage.getItem('publish_form_cache:1484759341480379'))
-//       // 重新赋值 cache 数据
-//       const newCacheData = {
-//         ...cache,
-//         itemTitle: taskName,
-//         textResult: {
-//           text: taskName,
-//           textExtra: [],
-//           activity: [],
-//           caption: remark
-//         }
-//       };
-//       const newData = JSON.stringify({ type, cache: newCacheData });
-//       localStorage.setItem('publish_form_cache:1484759341480379', newData);
-
-//       flag = true;
-//       resolve(flag); // 返回成功标志
-
-//       await delay(2000)
-//       // 刷新页面
-//       window.location.reload()
-
-
-//     } catch (error) {
-//       console.error('autoFillForm 出现错误:', error);
-//       reject(error); // 返回错误信息
-//     }
-//   });
-// }
-
-// 自动填充表单，写入缓存后刷新一次页面
 async function autoFillForm() {
   return new Promise(async (resolve, reject) => {
+    let flag = false;
     try {
       // 获取任务数据
-      const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {};
-      const { taskName, remark } = task;
-      console.log(task, 'task');
+      const task = parseJSON(localStorage.getItem('task'), {})
 
       // 获取缓存数据
-      const cacheData = localStorage.getItem('publish_form_cache:1484759341480379');
-      if (!cacheData) {
-        reject(new Error('没有找到缓存数据'));
-        return;
+      const cacheList = await getStorageKey()
+      // 
+      if (cacheList && cacheList.length) {
+        console.log('获取缓存list', cacheList);
+        cacheList.forEach(item => {
+          const cacheItem = localStorage.getItem(item)
+          if (!cacheItem || cacheItem === 'null' || cacheItem === 'undefined') {
+            return
+          }
+          // 获取缓存数据
+          const { type, cache } = parseJSON(cacheItem, {})
+          // 重新赋值 cache 数据
+          const newCacheData = {
+            ...cache,
+            itemTitle: task.taskName,
+            scheduleTime: '2024-07-16 15:00:00',
+            textResult: {
+              text: task.remark,
+              textExtra: [],
+              activity: [],
+              caption: task.remark
+            }
+          };
+          const newData = JSON.stringify({ type, cache: newCacheData });
+          localStorage.setItem(item, newData);
+        })
+      } else {
+        console.log('没有找到缓存');
+        return
       }
-      const { type, cache } = JSON.parse(cacheData);
-      // 重新赋值 cache 数据
-      const newCacheData = {
-        ...cache,
-        itemTitle: taskName,
-        textResult: {
-          text: taskName,
-          textExtra: [],
-          activity: [],
-          caption: remark
-        }
-      };
-      const newData = JSON.stringify({ type, cache: newCacheData });
-      localStorage.setItem('publish_form_cache:1484759341480379', newData);
-
-      resolve(true); // 返回成功标志
+      // 设置标志位，表明已经填写过表单
+      console.log('表单自动填写成功');
+      localStorage.setItem('isResetCache', '1');
+      flag = true;
+      resolve(flag); // 返回成功标志
     } catch (error) {
       console.error('autoFillForm 出现错误:', error);
       reject(error); // 返回错误信息
@@ -651,23 +589,37 @@ async function autoFillForm() {
   });
 }
 
+// 发布成功后通知后台
+async function publishSuccess() {
+  try {
+    // 获取任务数据
+    const task = parseJSON(localStorage.getItem('task'), {})
+    const { id, filePath } = task;
+    const api = '/admin/autopublishtask/updateAutoPublishTask'
+    const res = await $Request(api, {
+      params: {
+        id: id, dyVideoUrl: filePath
+      }
+    })
+    console.log(res, '发布成功接口---res')
+  } catch (error) {
+    $handleError(error)
+  }
+}
 
 
-const count = 5
+
+
+
+
 // 退出登录
 async function childLogout() {
   try {
-    // 跳转到子账号首页
-    // window.location.href = childHomePage;
     await delay(2000); // 等待页面加载
 
     const logoutButton = await waitForElement('.semi-navigation-footer .semi-avatar');
-    console.log(logoutButton);
-
     // 获取按钮的具体位置
     const logoutButtonRect = logoutButton.getBoundingClientRect();
-    console.log(logoutButtonRect);
-
     simulateMouseMove(
       logoutButtonRect.x + logoutButtonRect.width / 2,
       logoutButtonRect.y + logoutButtonRect.height / 2
@@ -675,10 +627,6 @@ async function childLogout() {
     console.log('logoutButton clicked');
 
     await delay(2000); // 等待下拉菜单出现
-
-    const portalButton = await waitForElement('.semi-portal');
-    console.log(portalButton);
-
     const logout = await waitForElement('.semi-portal .logout');
     console.log(logout);
 
@@ -687,12 +635,8 @@ async function childLogout() {
       pageFlag = false;
       console.log('logout clicked');
     } else {
-      count-- // 重试次数减一
-      if (count > 0) {
-        await childLogout();
-      } else {
-        console.error('logout not found');
-      }
+      await delay(2000);
+      childLogout();
     }
   } catch (error) {
     console.error('Error during logout:', error);
@@ -701,19 +645,18 @@ async function childLogout() {
 
 
 // 工具函数
-
-// 等待元素出现的函数
+// 等待元素出现，没有出现就2秒后重试
 async function waitForElement(selector, options = {}) {
   const querySelectorAll = options.isAll || false;
   const timeout = options.timeout || 10000; // 每次尝试的超时时间
-  const interval = 500; // 检查间隔
-  const retryDelay = 2000; // 每次重试之间的等待时间
-  const maxRetries = 5; // 最大重试次数
+  const interval = options.interval || 500; // 检查间隔
+  const retryDelay = options.retryDelay || 2000; // 每次重试之间的等待时间
+  const maxRetries = options.maxRetries || 5; // 最大重试次数
+
   let retries = 0;
 
   while (retries < maxRetries) {
     const startTime = Date.now();
-
     while (Date.now() - startTime < timeout) {
       const element = querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector);
       if (element && (querySelectorAll ? element.length > 0 : true)) {
@@ -721,7 +664,6 @@ async function waitForElement(selector, options = {}) {
       }
       await delay(interval);
     }
-
     // 如果达到这里，说明本次尝试超时
     console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...`);
     await delay(retryDelay);
@@ -833,7 +775,7 @@ function $Request(url = '', { options = {}, params = {} } = {}) {
 // 错误处理函数，将错误信息存储在 localStorage 中
 function $handleError(error) {
   console.log('发生错误:', error)
-  const errorLogs = JSON.parse(localStorage.getItem('errorLogs')) || []
+  const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
   const errorLog = {
     message: error.message,
     stack: error.stack,
@@ -843,6 +785,31 @@ function $handleError(error) {
   localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
 }
 
+function removeStorageKey() {
+  return new Promise((resolve, reject) => {
+    // 定义要查找的前缀
+    const prefix = 'publish_form_cache:';
+    // 遍历 localStorage 中的所有键
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+
+      // 检查键是否以指定前缀开头
+      if (key.includes(prefix)) {
+        console.log('key----' + key);
+        // 获取该键的值
+        const cachedData = localStorage.getItem(key);
+        // 检查键是否存在
+        if (cachedData) {
+          // 删除指定的键
+          localStorage.removeItem(cachedData);
+          resolve('已删除指定的键');
+        } else {
+          reject(new Error('未找到指定的键'));
+        }
+      }
+    }
+  });
+}
 
 function getStorageKey() {
   return new Promise((resolve, reject) => {
@@ -860,7 +827,7 @@ function getStorageKey() {
 
         // 获取该键的值
         const cachedData = localStorage.getItem(key);
-        console.log('找到的数据:', JSON.parse(cachedData));
+        console.log('找到的数据:', parseJSON(cachedData, []));
         // 将数据添加到结果列表中
         cachedDataList.push(key);
 
@@ -875,6 +842,27 @@ function getStorageKey() {
       reject(new Error('未找到匹配的键'));
     }
   });
+}
+
+async function reloadPage(timeout = 1000) {
+  await delay(timeout);
+
+  window.location.reload()
+}
+
+// 解析JSON
+function parseJSON(jsonString = '', defaultValue = null) {
+  try {
+    return JSON.parse(jsonString)
+  } catch (error) {
+    return defaultValue
+  }
+}
+
+// 发送通知
+function messageCreate(message) {
+  // 发送消息
+  chrome.runtime.sendMessage({ action: "fromContent", message });
 }
 
 

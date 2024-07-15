@@ -4,19 +4,6 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   console.log(tab, '当前tab');
 });
 
-// chrome.runtime.onMessage.addListener((message, callback) => {
-//   const tabId = getForegroundTabId();
-//   if (message.data === "setAlarm") {
-//     chrome.alarms.create({delayInMinutes: 5})
-//   } else if (message.data === "runLogic") {
-//     chrome.scripting.executeScript({file: 'logic.js', tabId});
-//   } else if (message.data === "changeColor") {
-//     chrome.scripting.executeScript(
-//         {func: () => document.body.style.backgroundColor="orange", tabId});
-//   };
-// });
-
-
 chrome.action.onClicked.addListener((tab) => {
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
@@ -24,6 +11,14 @@ chrome.action.onClicked.addListener((tab) => {
   });
 });
 
+chrome.runtime.onMessage.addListener((message, callback) => {
+  console.log(message, 'background.js ---- onMessage');
+  if (message.action === 'fromContent') {
+    messageCreate(message.message)
+  }
+});
+
+// 获取当前tab 
 async function getCurrentTab() {
   let queryOptions = { active: true, lastFocusedWindow: true };
   // `tab` will either be a `tabs.Tab` instance or `undefined`.
@@ -38,4 +33,19 @@ function sendMessageToContentScript(message, callback) {
       if (callback) callback(response);
     });
   });
+}
+
+
+// 创建通知
+function messageCreate(message) {
+  //创建一个通知面板
+  chrome.notifications.create(
+    Math.random() + '',
+    {
+      type: 'basic',
+      iconUrl: 'images/icon_32.png',
+      title: '自动化插件',
+      message: message
+    }
+  );
 }
