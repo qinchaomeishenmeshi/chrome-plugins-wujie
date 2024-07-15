@@ -562,7 +562,6 @@ async function autoFillForm() {
           const newCacheData = {
             ...cache,
             itemTitle: task.taskName,
-            scheduleTime: '2024-07-16 15:00:00',
             textResult: {
               text: task.remark,
               textExtra: [],
