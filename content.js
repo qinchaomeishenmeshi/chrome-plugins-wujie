@@ -466,18 +466,19 @@ async function checkUploadVideo() {
       // 检查视频是否已经加载好
       if (videoElement.readyState >= 3) {
         console.log('videoElement already loaded')
-        reloadPage(2 * 1000)
+        reloadPage()
       } else {
         console.log('videoElement not yet loaded, adding event listener')
         videoElement.addEventListener('loadeddata', async () => {
           console.log('videoElement loadeddata')
-          reloadPage(2 * 1000)
+          reloadPage()
         })
       }
     } else {
       // 如果视频元素不存在，输出错误信息,并继续调用checkUploadVideo
       console.error('videoElement not found')
-      setTimeout(checkUploadVideo, 2000)
+      await delay(2 * 1000)
+      checkUploadVideo()
     }
   } catch (error) {
     $handleError(error)
@@ -495,10 +496,7 @@ async function handleInputCache(_videoElement) {
 
       const flag = await autoFillForm();
       if (flag) {
-
-        await delay(2000)
-        // 刷新页面
-        window.location.reload();
+        reloadPage()
       } else {
         console.log('表单自动填写失败');
       }
@@ -843,9 +841,8 @@ function getStorageKey() {
   });
 }
 
-async function reloadPage(timeout = 1000) {
+async function reloadPage(timeout = 4000) {
   await delay(timeout);
-
   window.location.reload()
 }
 
