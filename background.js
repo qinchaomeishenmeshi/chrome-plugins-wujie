@@ -1,6 +1,6 @@
-chrome.runtime.onInstalled.addListener(({ reason }) => {
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   console.log('onInstalled', reason);
-  const tab = getCurrentTab();
+  const tab = await getCurrentTab();
   console.log(tab, '当前tab');
 });
 

@@ -27,7 +27,7 @@ function waitForPageLoad() {
 
 async function init() {
   await waitForPageLoad();
-  console.log('Page fully loaded---' + window.location.href);
+  console.warn('Page fully loaded---' + window.location.href);
   switch (window.location.href) {
     case childHomePage:
       // 点击内容管理按钮
@@ -35,7 +35,8 @@ async function init() {
 
       break;
     case childUploadPage:
-      styledLog('childUploadPage')
+      console.log('childUploadPage')
+      localStorage.setItem('isResetCache', '0')
       //  点击上传按钮
       getUploadFileFn()
 
@@ -48,6 +49,7 @@ async function init() {
 
     case childPublishPage:
       handleInputCache()
+      // autoFillForm()
       break
 
     default:
@@ -352,7 +354,7 @@ async function goToChildPage() {
   await getTask()
   const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {}
   const { dyUserId, filePath, taskName } = task
-  styledLog({ dyUserId, filePath, taskName })
+  console.log({ dyUserId, filePath, taskName })
   const dataLists = JSON.parse(localStorage.getItem('dataList'))
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === dyUserId)
   // 先判断childIndex在第几页
@@ -388,10 +390,10 @@ async function getNavigationList() {
   try {
     // 找到navList中的所有li元素
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
-    styledLog(navListItems)
+    console.log(navListItems)
     if (navListItems && navListItems.length) {
       navListItems[1].click()
-      styledLog('navListItems clicked')
+      console.log('navListItems clicked')
     }
 
   } catch (error) {
@@ -405,7 +407,7 @@ async function getUploadFileFn() {
   try {
     const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {}
     const { filePath, taskName } = task
-    styledLog(filePath)
+    console.log(filePath)
     if (filePath) {
       const file = await urlToFile(filePath, taskName)
       const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', { isAll: true })
@@ -419,7 +421,7 @@ async function getUploadFileFn() {
         const event = new Event('change', { bubbles: true })
         inputElement[0].dispatchEvent(event)
 
-        styledLog('File uploaded successfully')
+        console.log('File uploaded successfully')
         // 检查视频是否已经加载好
         checkUploadVideo()
       } else {
@@ -462,162 +464,192 @@ async function checkUploadVideo() {
   }
 }
 
+function simulateChineseInputInEditor(text) {
+  const editor = document.querySelector('.outerdocbody .editor-kit-container[contenteditable="true"]');
+
+  if (!editor) {
+    console.error('Editor not found');
+    return;
+  }
+
+  // 设置编辑器内容
+  editor.innerHTML = `<div class="ace-line" data-node="true"><div data-line-wrapper="true" dir="auto"><span class="" data-leaf="true"><span data-string="true" data-enter="true">${text}</span></span></div></div>`;
+
+  // 触发 input 和 change 事件
+  const inputEvent = new Event('input', { bubbles: true });
+  editor.dispatchEvent(inputEvent);
+
+  const changeEvent = new Event('change', { bubbles: true });
+  editor.dispatchEvent(changeEvent);
+}
+
+
+// // 视频加载完毕后写入缓存准备发布
+// async function handleInputCache(_videoElement) {
+
+//   try {
+//     // 重新写入缓存
+//     const cacheFlag = localStorage.getItem('isResetCache')
+//     console.log(cacheFlag, 'cacheFlag');
+//     const flag = cacheFlag > 0 ? true : await autoFillForm();
+//     //  设置localStorage已写入新的缓存
+//     if (flag) {
+//       console.log('表单自动填写成功');
+//       // 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
+//       const publishButtons = await waitForElement('button', { isAll: true })
+//       // 遍历按钮，查找内容为 "发布" 的按钮
+//       publishButtons.forEach((button) => {
+//         if (button.textContent.trim() === '发布') {
+//           publishButton = button
+//         }
+//       })
+
+//       if (publishButton) {
+//         console.log('点击发布按钮')
+
+//         // publishButton.click()
+//         // 进入内容管理页面
+//         // window.location.href = childContentPage
+//       } else {
+//         console.error('未找到发布按钮')
+//       }
+//     } else {
+//       console.log('表单自动填写失败');
+//     }
+//   } catch (error) {
+//     console.error('表单自动填写过程中出现错误:', error);
+//   }
+
+// }
+
 // 视频加载完毕后写入缓存准备发布
 async function handleInputCache(_videoElement) {
-
-  await delay(2000)
   try {
-    const flag = await autoFillForm();
-    if (flag) {
-      styledLog('表单自动填写成功');
-// 找到页面card-container-creator-layout下的按钮文案内容为发布的按钮 并点击
-      const publishButtons = await waitForElement('button', { isAll: true })
-      // 遍历按钮，查找内容为 "发布" 的按钮
-      publishButtons.forEach((button) => {
-        if (button.textContent.trim() === '发布') {
-          publishButton = button
-        }
-      })
+    // 检查是否需要重新写入缓存
+    const cacheFlag = localStorage.getItem('isResetCache');
+    console.log(cacheFlag, 'cacheFlag');
 
-      if (publishButton) {
-        styledLog('点击发布按钮')
-
-        // publishButton.click()
-        // 进入内容管理页面
-        // window.location.href = childContentPage
+    if (cacheFlag !== '1') {
+      const flag = await autoFillForm();
+      if (flag) {
+        console.log('表单自动填写成功');
+        // 设置标志位，表明已经填写过表单
+        localStorage.setItem('isResetCache', '1');
+        // 刷新页面
+        window.location.reload();
       } else {
-        console.error('未找到发布按钮')
+        console.log('表单自动填写失败');
       }
     } else {
-      styledLog('表单自动填写失败');
+      // 已经填写过表单，进行发布操作
+      console.log('表单已自动填写，进行发布操作');
+      const publishButton = await findPublishButton();
+      if (publishButton) {
+        console.log('点击发布按钮');
+        publishButton.click();
+        // 进入内容管理页面
+        // window.location.href = childContentPage;
+      } else {
+        console.error('未找到发布按钮');
+      }
     }
   } catch (error) {
     console.error('表单自动填写过程中出现错误:', error);
   }
+}
 
+// 查找并返回发布按钮
+async function findPublishButton() {
+  const publishButtons = await waitForElement('button', { isAll: true });
+  // 遍历按钮，查找内容为 "发布" 的按钮
+  for (const button of publishButtons) {
+    if (button.textContent.trim() === '发布') {
+      return button;
+    }
+  }
+  return null;
 }
 
 
+// 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
+// async function autoFillForm() {
+//   localStorage.setItem('isResetCache', 1);
+//   return new Promise(async (resolve, reject) => {
+//     let flag = false;
+//     try {
+//       // 获取任务数据
+//       const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {};
+//       const { taskName, remark, sendTime, topicName } = task;
+//       console.log(task, 'task');
+
+//       // 获取缓存数据
+//       const { type, cache } = JSON.parse(localStorage.getItem('publish_form_cache:1484759341480379'))
+//       // 重新赋值 cache 数据
+//       const newCacheData = {
+//         ...cache,
+//         itemTitle: taskName,
+//         textResult: {
+//           text: taskName,
+//           textExtra: [],
+//           activity: [],
+//           caption: remark
+//         }
+//       };
+//       const newData = JSON.stringify({ type, cache: newCacheData });
+//       localStorage.setItem('publish_form_cache:1484759341480379', newData);
+
+//       flag = true;
+//       resolve(flag); // 返回成功标志
+
+//       await delay(2000)
+//       // 刷新页面
+//       window.location.reload()
+
+
+//     } catch (error) {
+//       console.error('autoFillForm 出现错误:', error);
+//       reject(error); // 返回错误信息
+//     }
+//   });
+// }
+
+// 自动填充表单，写入缓存后刷新一次页面
 async function autoFillForm() {
   return new Promise(async (resolve, reject) => {
-    let flag = false;
     try {
       // 获取任务数据
       const task = localStorage.getItem('task') ? JSON.parse(localStorage.getItem('task')) : {};
-      const { taskName, remark, sendTime, topicName } = task;
-      styledLog({ taskName, remark, sendTime, topicName });
+      const { taskName, remark } = task;
+      console.log(task, 'task');
 
-      // // 获取缓存键列表并更新缓存数据
-      // const cacheKeyList = await getStorageKey();
-      // for (const key of cacheKeyList) {
-      //   const data = localStorage.getItem(key);
-      //   console.log(data, data);
-      //   // if (data === 'null' || data === undefined || data === 'undefined' || data === null) {
-      //   //   // 找到title，更新title
-      //   //   const titleInputElement = await waitForElement('input.semi-input.semi-input-default[type="text"]');
-      //   //   console.log(titleInputElement, 'titleInputElement');
-      //   //   if (titleInputElement) {
-      //   //     titleInputElement.value = taskName;
-      //   //     titleInputElement.dispatchEvent(new Event('change', { bubbles: true }));
-      //   //     await delay(2000);
-      //   //     window.location.href = childPublishPage
-      //   //   }
-      //   // } else {
-      //   //   const { type, cache } = JSON.parse(data);
-      //   //   // 重新赋值 cache 数据
-      //   //   const newCacheData = {
-      //   //     ...cache,
-      //   //     itemTitle: taskName,
-      //   //     textResult: {
-      //   //       text: remark,
-      //   //       textExtra: [],
-      //   //       activity: [],
-      //   //       caption: ""
-      //   //     }
-      //   //   };
-      //   //   const newData = JSON.stringify({ type, cache: newCacheData });
-      //   //   localStorage.setItem(key, newData);
-      //   // }
-
-
-
-
-
-      // }
-
-      // 找到title，更新title
-      const titleInputElement = await waitForElement('input.semi-input.semi-input-default[type="text"]');
-      console.log(titleInputElement, 'titleInputElement');
-      if (titleInputElement) {
-        titleInputElement.value = taskName;
-        titleInputElement.dispatchEvent(new Event('change', { bubbles: true }));
+      // 获取缓存数据
+      const cacheData = localStorage.getItem('publish_form_cache:1484759341480379');
+      if (!cacheData) {
+        reject(new Error('没有找到缓存数据'));
+        return;
       }
-
-      await delay(4000);
-
-      // 找到目标文本的 <p> 元素
-      const targetText = '发布时间';
-      const targetPElement = Array.from(document.querySelectorAll('p'))
-        .find(p => p.textContent.trim() === targetText);
-
-      if (targetPElement) {
-        console.log('找到的 <p> 元素:', targetPElement);
-
-        const parentElement = targetPElement.parentElement;
-        const nextSiblingElement = parentElement.nextElementSibling;
-
-        if (nextSiblingElement) {
-          console.log('找到的父级的下一个兄弟元素:', nextSiblingElement);
-
-          // 找到第一个和第二个checkbox
-          const checkboxes = nextSiblingElement.querySelectorAll('input[type="checkbox"]');
-          const firstCheckbox = checkboxes[0];
-          const secondCheckbox = checkboxes[1];
-
-          if (firstCheckbox) {
-            console.log('找到的 firstCheckbox 元素:', firstCheckbox);
-          } else {
-            console.log('在下一个兄弟元素中未找到 firstCheckbox');
-          }
-
-          if (secondCheckbox) {
-            secondCheckbox.click();
-            console.log('找到的 secondCheckbox 元素并点击:', secondCheckbox);
-
-            await delay(2000);
-
-            // 找到日期和时间的输入框并设置值
-            const inputElement = await waitForElement('input.semi-input.semi-input-default[placeholder="日期和时间"]');
-            if (inputElement) {
-              // inputElement.value = sendTime;
-              inputElement.value = '2024-07-13 15:00:00';
-              console.log('设置了定时发布的时间:', inputElement, inputElement.value);
-              inputElement.dispatchEvent(new Event('change', { bubbles: true }));
-              flag = true;
-              resolve(flag); // 返回成功标志
-            } else {
-              console.log('未找到定时发布的输入框');
-              resolve(flag); // 返回失败标志
-            }
-          } else {
-            console.log('在下一个兄弟元素中未找到 secondCheckbox');
-            resolve(flag); // 返回失败标志
-          }
-        } else {
-          console.log('父级元素没有下一个兄弟元素');
-          resolve(flag); // 返回失败标志
+      const { type, cache } = JSON.parse(cacheData);
+      // 重新赋值 cache 数据
+      const newCacheData = {
+        ...cache,
+        itemTitle: taskName,
+        textResult: {
+          text: taskName,
+          textExtra: [],
+          activity: [],
+          caption: remark
         }
-      } else {
-        console.log('未找到符合条件的 <p> 元素');
-        resolve(flag); // 返回失败标志
-      }
+      };
+      const newData = JSON.stringify({ type, cache: newCacheData });
+      localStorage.setItem('publish_form_cache:1484759341480379', newData);
+
+      resolve(true); // 返回成功标志
     } catch (error) {
       console.error('autoFillForm 出现错误:', error);
       reject(error); // 返回错误信息
     }
   });
 }
-
 
 
 
@@ -630,25 +662,25 @@ async function childLogout() {
     await delay(2000); // 等待页面加载
 
     const logoutButton = await waitForElement('.semi-navigation-footer .semi-avatar');
-    styledLog(logoutButton);
+    console.log(logoutButton);
 
     // 获取按钮的具体位置
     const logoutButtonRect = logoutButton.getBoundingClientRect();
-    styledLog(logoutButtonRect);
+    console.log(logoutButtonRect);
 
     simulateMouseMove(
       logoutButtonRect.x + logoutButtonRect.width / 2,
       logoutButtonRect.y + logoutButtonRect.height / 2
     );
-    styledLog('logoutButton clicked');
+    console.log('logoutButton clicked');
 
     await delay(2000); // 等待下拉菜单出现
 
     const portalButton = await waitForElement('.semi-portal');
-    styledLog(portalButton);
+    console.log(portalButton);
 
     const logout = await waitForElement('.semi-portal .logout');
-    styledLog(logout);
+    console.log(logout);
 
     if (logout) {
       logout.click();
@@ -691,7 +723,7 @@ async function waitForElement(selector, options = {}) {
     }
 
     // 如果达到这里，说明本次尝试超时
-    styledLog(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...`);
+    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...`);
     await delay(retryDelay);
     retries++;
   }
@@ -727,7 +759,7 @@ async function urlToFile(url, name) {
   const fileName = `${name}-${Date.now()}.mp4`
   // 获取文件类型
   const fileType = blob.type
-  styledLog({ fileName, fileType })
+  console.log({ fileName, fileType })
   // 将 Blob 转换为 File 对象
   return new File([blob], fileName, { type: fileType })
 }
@@ -846,11 +878,6 @@ function getStorageKey() {
 }
 
 
-
-
-function styledLog(message, _style) {
-  console.log(`%c${'WUJIE_ERROR:' + JSON.stringify(message)}`, _style || 'background: #222; color: #bada55; padding: 4px;');
-}
 
 
 
