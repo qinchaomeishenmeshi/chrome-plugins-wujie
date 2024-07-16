@@ -3,7 +3,8 @@
   "name": "自动发布douyin",
   "version": "1.0",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "permissions": [
     "activeTab",

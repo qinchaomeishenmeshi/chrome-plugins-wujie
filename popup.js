@@ -1,5 +1,3 @@
-
-
 document.addEventListener('DOMContentLoaded', function () {
   console.log('Popup.js 页面加载完成！');
 
@@ -15,6 +13,8 @@ document.addEventListener('DOMContentLoaded', function () {
   logoutButton.addEventListener('click', logoutBtnClick)
 
 });
+
+
 
 // 同步账号信息
 function syncBtnClick() {

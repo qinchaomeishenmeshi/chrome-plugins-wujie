@@ -7,7 +7,8 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 chrome.action.onClicked.addListener((tab) => {
   chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    files: ['content.js']
+    files: ['connect.js', 'request.js', 'content.js'],
+    type: 'module',
   });
 });
 

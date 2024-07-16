@@ -1,3 +1,4 @@
+
 // 通用的调用接口方法
 function $Request(url = '', { options = {}, params = {} } = {}) {
   const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
@@ -32,7 +33,7 @@ function $Request(url = '', { options = {}, params = {} } = {}) {
 // 错误处理函数，将错误信息存储在 localStorage 中
 function $handleError(error) {
   console.log('发生错误:', error)
-  const errorLogs = JSON.parse(localStorage.getItem('errorLogs')) || []
+  const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
   const errorLog = {
     message: error.message,
     stack: error.stack,
@@ -41,5 +42,3 @@ function $handleError(error) {
   errorLogs.push(errorLog)
   localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
 }
-
-export default { $Request, $handleError }

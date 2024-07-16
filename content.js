@@ -1,5 +1,3 @@
-
-
 /**
  * @description: 抖音创作中心自动化脚本，用于自动填写表单并发布视频
  * 同步账号
@@ -9,6 +7,8 @@
  * 修改任务状态
  * 退出登录
  * */
+
+
 // 机构号首页
 const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
 // 子账号首页
@@ -27,30 +27,28 @@ const childPublishAfterPage = 'https://creator.douyin.com/content/manage?enter_f
 
 async function init() {
   await waitForPageLoad();
-  console.warn('页面加载成功。。。');
+  console.log('页面加载成功。。。');
+
+  const taskStatus = localStorage.getItem('taskStatus')
+  if (taskStatus !== '1') {
+    console.log('任务状态不为1，不执行操作');
+    return
+  }
   switch (window.location.href) {
     case creatorHomePage:
-      // getMaxPage()
-      const taskStatus = localStorage.getItem('taskStatus')
-      if (taskStatus === '1') {
-        console.log('任务状态为1，开始执行任务');
-        getTask()
-      }
+      getTask()
       break;
     case childCreatorHomePage:
-      // 点击内容管理按钮
-      getNavigationList()
-
-      break;
-    case childUploadPage:
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
       await removeStorageKey()
-      console.log('清空历史缓存数据');
+      // 跳转到子账号页面的上传
+      toChildUploadPage()
+      break;
+    case childUploadPage:
       //  点击上传按钮
-      getUploadFileFn()
-
+      uploadVideoFn()
       break;
 
     case childContentPage:
@@ -60,7 +58,7 @@ async function init() {
 
     case childPublishPage:
       // 点击发布按钮
-      handleInputCache()
+      publishVideo()
       break
 
     default:
@@ -427,7 +425,7 @@ async function getTask() {
 }
 
 // 获取子页面上导航栏
-async function getNavigationList() {
+async function toChildUploadPage() {
   try {
     // 找到navList中的所有li元素
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
@@ -444,7 +442,7 @@ async function getNavigationList() {
 
 
 // 通过接口获取文件路径
-async function getUploadFileFn() {
+async function uploadVideoFn() {
   // 获取任务数据
   const task = parseJSON(localStorage.getItem('task'), {})
   const { filePath, taskName } = task
@@ -505,7 +503,7 @@ async function checkUploadVideo() {
 }
 
 // 视频加载完毕后写入缓存准备发布
-async function handleInputCache(_videoElement) {
+async function publishVideo(_videoElement) {
   try {
     // 检查是否需要重新写入缓存
     const cacheFlag = localStorage.getItem('isResetCache');
@@ -688,7 +686,7 @@ async function waitForElement(selector, options = {}) {
       await delay(interval);
     }
     // 如果达到这里，说明本次尝试超时
-    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...`);
+    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`);
     await delay(retryDelay);
     retries++;
   }
@@ -807,6 +805,7 @@ function $handleError(error) {
   }
   errorLogs.push(errorLog)
   localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
+  messageCreate(error.message)
 }
 
 function removeStorageKey() {
