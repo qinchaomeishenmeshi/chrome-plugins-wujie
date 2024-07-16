@@ -9,8 +9,10 @@
  * 修改任务状态
  * 退出登录
  * */
+// 机构号首页
+const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
 // 子账号首页
-const childHomePage = 'https://creator.douyin.com/'
+const childCreatorHomePage = 'https://creator.douyin.com/'
 // 子账号内容管理页码
 const childContentPage = 'https://creator.douyin.com/content/manage'
 // 子账号上传页面
@@ -21,23 +23,21 @@ const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=
 const childPublishAfterPage = 'https://creator.douyin.com/content/manage?enter_from=publish'
 
 
-function waitForPageLoad() {
-  return new Promise((resolve) => {
-    if (document.readyState === 'complete') {
-      resolve();
-    } else {
-      window.addEventListener('load', () => {
-        resolve();
-      });
-    }
-  });
-}
+
 
 async function init() {
   await waitForPageLoad();
   console.warn('页面加载成功。。。');
   switch (window.location.href) {
-    case childHomePage:
+    case creatorHomePage:
+      // getMaxPage()
+      const taskStatus = localStorage.getItem('taskStatus')
+      if (taskStatus === '1') {
+        console.log('任务状态为1，开始执行任务');
+        getTask()
+      }
+      break;
+    case childCreatorHomePage:
       // 点击内容管理按钮
       getNavigationList()
 
@@ -96,13 +96,20 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       getTableAll()
       break
     case 'start':
+      localStorage.setItem('taskStatus', '1')
       getTask()
+
       break
     case 'reload':
       reloadTable()
       break
     case 'logout':
       childLogout()
+      break
+
+    case "pause":
+      // 暂停
+      pauseAllTask()
       break
     default:
       break
@@ -112,21 +119,21 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function reloadTable() {
   try {
     // 获取最大页码
-    getMaxPage()
+    await getMaxPage()
     // 如果不是最后一页，轮流跳转到最后一页
     while (currentPage < maxPage) {
       nextPage()
       await delay(1000)
     }
     // 如果是最后一页，再次获取最大页码
-    getMaxPage()
+    await getMaxPage()
     // 如果不是第一页，轮流跳转到第一页
     while (currentPage > 1) {
       prevPage()
       await delay(1000)
     }
     // 如果是第一页，再次获取最大页码
-    getMaxPage()
+    await getMaxPage()
     // 10秒后重新获取表格数据
     await delay(90 * 1000)
     reloadTable()
@@ -163,11 +170,11 @@ let publishButton = null
 async function getTableAll() {
   try {
     // 获取表格的tbody元素
-    const tbody = document.querySelector('.douyin-creator-pc-table-tbody')
+    const table = document.querySelector('.douyin-creator-pc-table-tbody')
+    // 获取所有的tr元素
+    const rows = table.querySelectorAll('tr')
 
-    if (tbody) {
-      // 获取所有的tr元素
-      const rows = tbody.querySelectorAll('tr')
+    if (rows) {
 
       // 遍历所有的tr元素
       rows.forEach((row) => {
@@ -192,7 +199,7 @@ async function getTableAll() {
       console.log(dataList)
 
       // 获取最大页码
-      getMaxPage()
+      await getMaxPage()
 
       // 递归调用获取下一页数据
       if (currentPage < maxPage) {
@@ -233,15 +240,13 @@ async function syncAccount() {
   }
 }
 
-async function getTable() {
+async function getTable(task) {
   accountList.length = 0
   try {
     // 获取表格的tbody元素
-    const tbody = document.querySelector('.douyin-creator-pc-table-tbody')
-
+    const table = document.querySelector('.douyin-creator-pc-table-tbody')
     // 获取所有的tr元素
-    const rows = tbody.querySelectorAll('tr')
-
+    const rows = table.querySelectorAll('tr')
     // 遍历所有的tr元素
     rows.forEach((row, col) => {
       // 创建一个空对象来保存每行的数据
@@ -264,6 +269,20 @@ async function getTable() {
 
     // 打印收集到的数据
     console.log(accountList, 'accountList')
+    if (accountList && accountList.length) {
+      // 获取accountList中id为ID的元素
+      const childAccount = accountList.find((item) => item.dyAccountNo === task.dyUserId)
+      console.log(childAccount, 'childAccount');
+      if (childAccount) {
+        // 点击子账号的操作按钮
+        childAccount.actions[0].click()
+      } else {
+        console.log('未找到子账号');
+        localStorage.setItem('taskStatus', '0')
+        reloadPage()
+      }
+
+    }
   } catch (error) {
     $handleError(error)
     // 重新获取table
@@ -277,12 +296,13 @@ async function getTable() {
 }
 
 // 获取最大页码数
-function getMaxPage() {
+async function getMaxPage() {
   // 获取分页器的元素
-  const pageDiv = document.querySelector(
+  // 获取分页器的元素
+  const pageDiv = await waitForElement(
     '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
   )
-
+  console.log(pageDiv, 'pageDiv');
   if (pageDiv) {
     // 获取div的文本内容
     const pageText = pageDiv.innerText.trim()
@@ -305,8 +325,8 @@ async function prevPage() {
     if (prevPageButton) {
       prevPageButton.click()
       console.log('prevPageButton clicked')
-      await delay(1000) // 等待页面加载完成
-      getMaxPage() // 更新当前页码
+      await delay(2000) // 等待页面加载完成
+      await getMaxPage() // 更新当前页码
     } else {
       console.error('prevPageButton not found')
     }
@@ -324,8 +344,8 @@ async function nextPage() {
     if (nextPageButton) {
       nextPageButton.click()
       console.log('nextPageButton clicked')
-      await delay(1000) // 等待页面加载完成
-      getMaxPage() // 更新当前页码
+      await delay(2000) // 等待页面加载完成
+      await getMaxPage() // 更新当前页码
     } else {
       console.error('nextPageButton not found')
     }
@@ -338,8 +358,9 @@ async function nextPage() {
 // 跳转到某一页
 function goToPage(page) {
   return new Promise(async (resolve, reject) => {
-    getMaxPage()
+    await getMaxPage()
     page = Number(page)
+    console.log('跳转到：', page);
     if (page < 1 || page > maxPage) {
       console.error('页码超出范围')
       reject('页码超出范围')
@@ -374,20 +395,16 @@ async function goToChildPage() {
   }
   // 每页5个元素，计算元素所在的页码
   const itemsPerPage = 5;
-  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage); // 使用 (childIndex + 1) 确保正确的页码计算
+  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage);
 
+  console.log(pageIndex, 'pageIndex');
   // 进入对应页码
-  await goToPage(pageIndex)
+  await goToPage(pageIndex || 1)
 
   // 获取当前页面的table
-  getTable()
-  if (accountList && accountList.length) {
-    // 获取accountList中id为ID的元素
-    const childAccount = accountList.find((item) => item.dyAccountNo === task.dyUserId)
-    console.log(childAccount, 'childAccount');
-    // 获取子页面上导航栏
-    childAccount?.actions[0].click()
-  }
+  getTable(task)
+
+
 }
 
 // 获取要开始的任务
@@ -396,10 +413,12 @@ async function getTask() {
     const api = '/admin/autopublishtask/getNoPublicData'
     const res = await $Request(api)
     if (!res) {
+      localStorage.setItem('taskStatus', '0')
       messageCreate('没有新的任务')
       return
     }
     localStorage.setItem('task', JSON.stringify(res))
+    await delay(2000)
     // 进入子账号页面
     goToChildPage()
   } catch (error) {
@@ -511,9 +530,9 @@ async function handleInputCache(_videoElement) {
 
         publishButton.click();
 
-
+        await delay(2000);
         // 点击发布按钮后，进入内容管理页面
-        // window.location.href = childContentPage;
+        window.location.href = childContentPage;
       } else {
         console.error('未找到发布按钮');
       }
@@ -604,11 +623,6 @@ async function publishSuccess() {
   }
 }
 
-
-
-
-
-
 // 退出登录
 async function childLogout() {
   try {
@@ -642,20 +656,32 @@ async function childLogout() {
 
 
 // 工具函数
-// 等待元素出现，没有出现就2秒后重试
+
+// 
 async function waitForElement(selector, options = {}) {
   const querySelectorAll = options.isAll || false;
   const timeout = options.timeout || 10000; // 每次尝试的超时时间
-  const interval = options.interval || 500; // 检查间隔
+  const interval = options.interval || 1000; // 检查间隔
   const retryDelay = options.retryDelay || 2000; // 每次重试之间的等待时间
-  const maxRetries = options.maxRetries || 5; // 最大重试次数
+  const maxRetries = options.maxRetries || 50; // 最大重试次数
 
   let retries = 0;
+
+  function checkElement() {
+    return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector);
+  }
+
+  // 等待 DOMContentLoaded 事件
+  if (document.readyState === 'loading') {
+    await new Promise(resolve => {
+      document.addEventListener('DOMContentLoaded', resolve, { once: true });
+    });
+  }
 
   while (retries < maxRetries) {
     const startTime = Date.now();
     while (Date.now() - startTime < timeout) {
-      const element = querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector);
+      const element = checkElement();
       if (element && (querySelectorAll ? element.length > 0 : true)) {
         return element;
       }
@@ -669,6 +695,7 @@ async function waitForElement(selector, options = {}) {
 
   throw new Error(`Element not found after ${maxRetries} retries: ${selector}`);
 }
+
 
 
 // 模拟鼠标移动的函数
@@ -837,6 +864,18 @@ function getStorageKey() {
       resolve(cachedDataList);
     } else {
       reject(new Error('未找到匹配的键'));
+    }
+  });
+}
+
+function waitForPageLoad() {
+  return new Promise((resolve) => {
+    if (document.readyState === 'complete') {
+      resolve();
+    } else {
+      window.addEventListener('load', () => {
+        resolve();
+      });
     }
   });
 }

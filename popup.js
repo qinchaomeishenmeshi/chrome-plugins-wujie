@@ -56,6 +56,7 @@ function logoutBtnClick() {
   });
 }
 
+
 // 向content-script主动发送消息
 function sendMessageToContentScript(message, callback) {
   getCurrentTabId((tabId) => {
