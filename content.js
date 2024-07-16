@@ -644,8 +644,8 @@ async function childLogout() {
       pageFlag = false;
       console.log('logout clicked');
     } else {
-      await delay(2000);
-      childLogout();
+      // 重新进入子账号页面
+      window.location.href = childContentPage
     }
   } catch (error) {
     console.error('Error during logout:', error);
