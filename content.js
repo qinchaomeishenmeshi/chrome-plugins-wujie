@@ -29,7 +29,7 @@ async function init() {
   console.log('页面加载成功。。。')
   if (window.location.href === testPage) {
     console.log('测试页面')
-    testFn()
+    publishTimePickerSelect()
     return
   }
 
@@ -72,7 +72,7 @@ async function init() {
 
 init()
 
-async function testFn(dateTime = '2024-07-17 10:00') {
+async function publishTimePickerSelect(dateTime = '2024-07-22 16:22') {
   // 拆解dateTime
   const [date, time] = dateTime.split(' ')
   console.log(date, 'date')
@@ -84,27 +84,36 @@ async function testFn(dateTime = '2024-07-17 10:00') {
   console.log(hour, minute, 'hour')
 
   // 选择发布方式
-  selectPublishType()
+  selectPublishType(true)
+  await delay(1000)
+  // 打开日期选择器
+  selectDateTime()
+  await delay(1000)
   // 找到当前日期
   const currentDateTime = await getCurrentDate()
-  // 当前选择为dateTime日期，则匹配时间
   if (currentDateTime === dateTime) {
     console.log('当前选择为dateTime日期，则匹配时间')
     // 选择时间
     selectTime(hour, minute)
   } else {
-    // 当前选择不是dateTime日期，判断是否为当前年月
-    if (currentDateTime.includes(year) && currentDateTime.includes(month)) {
-      // 年月相同，直接选择日期
-      selectDate(day)
-      // 选择时间
-      selectTime(hour, minute)
-    } else {
-      // 年月不同，先选择年月，再选择日期
-      // 选择年月
-      selectYearMonth(year, month)
+    const currentYear = currentDateTime.split('-')[0]
+    const currentMonth = currentDateTime.split('-')[1]
+    console.log('当前选择不是dateTime日期，判断是否为当前年月')
+    if (currentYear === year && currentMonth === month) {
+      console.log('年月相同，直接选择日期')
       // 选择日期
       selectDate(day)
+      await delay(3000)
+      // // 选择时间
+      selectTime(hour, minute)
+    } else {
+      console.log('年月不同，先选择年月，再选择日期')
+      // 选择年月
+      selectYearMonth(year, month)
+      await delay(1000)
+      // 选择日期
+      selectDate(day)
+      await delay(3000)
       // 选择时间
       selectTime(hour, minute)
     }
@@ -112,7 +121,8 @@ async function testFn(dateTime = '2024-07-17 10:00') {
 }
 
 // 选择定时发布或者立即发布
-async function selectPublishType(isTiming = true) {
+async function selectPublishType(isTiming) {
+  console.log(isTiming, 'isTiming')
   // 找到所有label标签
   const labels = await waitForElement('label>span', { isAll: true })
 
@@ -121,13 +131,11 @@ async function selectPublishType(isTiming = true) {
     const label = Array.from(labels).find((item) => item.innerText === '定时发布')
     console.log(label, 'label')
     label.click()
-    await delay(2 * 1000)
   } else {
     // 立即发布
     const label = Array.from(labels).find((item) => item.innerText === '立即发布')
     console.log(label, 'label')
     label.click()
-    await delay(2 * 1000)
   }
 }
 
@@ -137,11 +145,11 @@ async function selectDateTime() {
   const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
   console.log(datePickerElement, '日期选择器')
   datePickerElement.click()
-  await delay(2 * 1000)
 }
 
 // 获取当前日期
 async function getCurrentDate() {
+  // 找到当前日期
   const currentDate = await waitForElement(
     '.semi-datepicker-day.semi-datepicker-day-today.semi-datepicker-day-selected'
   )
@@ -158,7 +166,7 @@ async function selectYearMonth(year, month) {
   console.log(datePickerHeader, 'datePickerHeader')
   // 如果不是，则点击
   datePickerHeader.click()
-  await delay(2 * 1000)
+  await delay(1000)
   //  年份列表
   const yearMonthSelect = await waitForElement(
     '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
@@ -167,17 +175,16 @@ async function selectYearMonth(year, month) {
   const yearList = yearMonthSelect[0].querySelectorAll('li')
   console.log(yearList, 'yearList')
   simulateWheelEvent(yearList, year)
-  await delay(2 * 1000)
+  await delay(1000)
   // 月份列表
   const monthList = yearMonthSelect[1].querySelectorAll('li')
   console.log(monthList, 'monthList')
   simulateWheelEvent(monthList, month)
-  await delay(2 * 1000)
+  await delay(1000)
   // 点击返回日期选择
   const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
   console.log(backBtn, 'backBtn')
   backBtn.click()
-  await delay(2 * 1000)
   // 年月选择结束
 }
 
@@ -187,8 +194,9 @@ async function selectDate(day) {
     isAll: true
   })
   console.log(dateList, 'dateList')
-  await delay(2 * 1000)
-  simulateDoubleClick(dateList[day - 1])
+  const dateElement = dateList[day]
+  console.log(dateElement, '日期')
+  dateElement.click()
 }
 
 // 选择时间
@@ -197,57 +205,42 @@ async function selectTime(hour, minute) {
   const timePicker = await waitForElement('.semi-datepicker-switch-time')
   console.log(timePicker, 'timePicker')
   timePicker.click()
-  await delay(2 * 1000)
+  await delay(3000)
   // 时间列表
   const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
     isAll: true
   })
-  await delay(2 * 1000)
   // 获取要触发双击事件的 li 元素
   const hourList = selectList[0].querySelectorAll('li')
   simulateWheelEvent(hourList, hour)
-  await delay(2 * 1000)
+  await delay(3000)
   const minuteList = selectList[1].querySelectorAll('li')
   simulateWheelEvent(minuteList, minute)
 }
 
-
 // 模拟鼠标滚轮事件的函数
 function simulateWheelEvent(list, target) {
-  try {
-    // 找到目标 li 元素（文本内容为 "03" 的 li）
-    const targetLi = Array.from(list).find((li) => li.textContent.trim() === target)
+  const targetLi = Array.from(list).find((li) => li.textContent.trim() === target)
 
-    if (targetLi) {
-      // 使用 scrollIntoView 方法滚动到目标元素
-      targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    } else {
-      console.log('未找到目标元素')
-    }
+  try {
+    console.log(list, 'list')
+    console.log(target, 'target')
+    // 使用 scrollIntoView 方法滚动到目标元素
+    targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } catch (error) {
-    console.error('模拟滚轮事件出错:', error)
+    console.error('模拟鼠标滚轮事件的函数error:', error)
     $handleError(error)
   }
 }
 // 模拟双击事件的函数
 function simulateDoubleClick(element) {
-  console.log(element, 'element')
   try {
-    console.log('模拟双击事件-开始')
     element.dblclick()
-    // const doubleClickEvent = new MouseEvent('dblclick', {
-    //   bubbles: true,
-    //   cancelable: true,
-    //   view: window
-    // });
   } catch (error) {
-    console.error('模拟双击事件出错:', error)
+    console.error('模拟双击事件的函数error:', error)
     $handleError(error)
   }
 }
-
-
-
 
 // 接收来自后台的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
