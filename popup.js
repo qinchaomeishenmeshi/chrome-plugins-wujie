@@ -3,12 +3,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
   let syncButton = document.getElementById('syncBtn');
   let startButton = document.getElementById('startBtn');
-  let logoutButton = document.getElementById('logoutBtn');
-  let reloadButton = document.getElementById('reloadBtn');
+  let endButton = document.getElementById('endBtn')
+  let logoutButton = document.getElementById('logoutBtn')
+  let reloadButton = document.getElementById('reloadBtn')
 
   // 给按钮添加点击事件，事件名为按钮id + 'Click'
-  syncButton.addEventListener('click', syncBtnClick);
-  startButton.addEventListener('click', startBtnClick);
+  syncButton.addEventListener('click', syncBtnClick)
+  startButton.addEventListener('click', startBtnClick)
+  endButton.addEventListener('click', endBtnClick)
   reloadButton.addEventListener('click', reloadBtnClick);
   logoutButton.addEventListener('click', logoutBtnClick)
 
@@ -31,6 +33,16 @@ function startBtnClick() {
   console.log('startBtnClick');
   chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
     chrome.tabs.sendMessage(tabs[0].id, { action: 'start' }, function (response) {
+      console.log(response);
+    });
+  });
+}
+
+// 结束自动化任务
+function endBtnClick() {
+  console.log('endBtnClick');
+  chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+    chrome.tabs.sendMessage(tabs[0].id, { action: 'end' }, function (response) {
       console.log(response);
     });
   });
