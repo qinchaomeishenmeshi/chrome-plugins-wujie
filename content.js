@@ -8,7 +8,6 @@
  * 退出登录
  * */
 
-
 // 机构号首页
 const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
 // 子账号首页
@@ -22,22 +21,27 @@ const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=
 // 发布后的页面
 const childPublishAfterPage = 'https://creator.douyin.com/content/manage?enter_from=publish'
 
-
-
+// 测试页面
+const testPage = 'https://creator.douyin.com/creator-micro/content/publish?enter_from=publish_page'
 
 async function init() {
-  await waitForPageLoad();
-  console.log('页面加载成功。。。');
+  await waitForPageLoad()
+  console.log('页面加载成功。。。')
+  if (window.location.href === testPage) {
+    console.log('测试页面')
+    testFn()
+    return
+  }
 
   const taskStatus = localStorage.getItem('taskStatus')
   if (taskStatus !== '1') {
-    console.log('任务状态不为1，不执行操作');
+    console.log('任务状态不为1，不执行操作')
     return
   }
   switch (window.location.href) {
     case creatorHomePage:
       getTask()
-      break;
+      break
     case childCreatorHomePage:
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
@@ -45,11 +49,11 @@ async function init() {
       await removeStorageKey()
       // 跳转到子账号页面的上传
       toChildUploadPage()
-      break;
+      break
     case childUploadPage:
       //  点击上传按钮
       uploadVideoFn()
-      break;
+      break
 
     case childContentPage:
       // 退出代运营状态
@@ -62,11 +66,186 @@ async function init() {
       break
 
     default:
-      break;
+      break
   }
 }
 
-init();
+init()
+
+async function testFn(dateTime = '2024-07-17 10:00') {
+  // 拆解dateTime
+  const [date, time] = dateTime.split(' ')
+  console.log(date, 'date')
+  // 拆解年月日
+  const [year, month, day] = date.split('-')
+  console.log(year, month, day, 'year')
+  // 拆解时分
+  const [hour, minute] = time.split(':')
+  console.log(hour, minute, 'hour')
+
+  // 选择发布方式
+  selectPublishType()
+  // 找到当前日期
+  const currentDateTime = await getCurrentDate()
+  // 当前选择为dateTime日期，则匹配时间
+  if (currentDateTime === dateTime) {
+    console.log('当前选择为dateTime日期，则匹配时间')
+    // 选择时间
+    selectTime(hour, minute)
+  } else {
+    // 当前选择不是dateTime日期，判断是否为当前年月
+    if (currentDateTime.includes(year) && currentDateTime.includes(month)) {
+      // 年月相同，直接选择日期
+      selectDate(day)
+      // 选择时间
+      selectTime(hour, minute)
+    } else {
+      // 年月不同，先选择年月，再选择日期
+      // 选择年月
+      selectYearMonth(year, month)
+      // 选择日期
+      selectDate(day)
+      // 选择时间
+      selectTime(hour, minute)
+    }
+  }
+}
+
+// 选择定时发布或者立即发布
+async function selectPublishType(isTiming = true) {
+  // 找到所有label标签
+  const labels = await waitForElement('label>span', { isAll: true })
+
+  if (labels && labels.length && isTiming) {
+    // 找到innerText为“定时发布”的label标签，点击定时发布
+    const label = Array.from(labels).find((item) => item.innerText === '定时发布')
+    console.log(label, 'label')
+    label.click()
+    await delay(2 * 1000)
+  } else {
+    // 立即发布
+    const label = Array.from(labels).find((item) => item.innerText === '立即发布')
+    console.log(label, 'label')
+    label.click()
+    await delay(2 * 1000)
+  }
+}
+
+// 选择定时发布后，点击日期选择器
+async function selectDateTime() {
+  // 打开日期选择器
+  const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
+  console.log(datePickerElement, '日期选择器')
+  datePickerElement.click()
+  await delay(2 * 1000)
+}
+
+// 获取当前日期
+async function getCurrentDate() {
+  const currentDate = await waitForElement(
+    '.semi-datepicker-day.semi-datepicker-day-today.semi-datepicker-day-selected'
+  )
+  // 获取属性title的值
+  const currentDateTime = currentDate.getAttribute('title')
+  console.log(currentDateTime, 'currentDate-title')
+  return currentDateTime
+}
+
+// 选择年月
+async function selectYearMonth(year, month) {
+  // 年月选择开始
+  const datePickerHeader = await waitForElement('.semi-datepicker-navigation-month>button')
+  console.log(datePickerHeader, 'datePickerHeader')
+  // 如果不是，则点击
+  datePickerHeader.click()
+  await delay(2 * 1000)
+  //  年份列表
+  const yearMonthSelect = await waitForElement(
+    '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
+    { isAll: true }
+  )
+  const yearList = yearMonthSelect[0].querySelectorAll('li')
+  console.log(yearList, 'yearList')
+  simulateWheelEvent(yearList, year)
+  await delay(2 * 1000)
+  // 月份列表
+  const monthList = yearMonthSelect[1].querySelectorAll('li')
+  console.log(monthList, 'monthList')
+  simulateWheelEvent(monthList, month)
+  await delay(2 * 1000)
+  // 点击返回日期选择
+  const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
+  console.log(backBtn, 'backBtn')
+  backBtn.click()
+  await delay(2 * 1000)
+  // 年月选择结束
+}
+
+// 选择日期
+async function selectDate(day) {
+  const dateList = await waitForElement('.semi-datepicker-month .semi-datepicker-day', {
+    isAll: true
+  })
+  console.log(dateList, 'dateList')
+  await delay(2 * 1000)
+  simulateDoubleClick(dateList[day - 1])
+}
+
+// 选择时间
+async function selectTime(hour, minute) {
+  // 时间选择按钮
+  const timePicker = await waitForElement('.semi-datepicker-switch-time')
+  console.log(timePicker, 'timePicker')
+  timePicker.click()
+  await delay(2 * 1000)
+  // 时间列表
+  const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
+    isAll: true
+  })
+  await delay(2 * 1000)
+  // 获取要触发双击事件的 li 元素
+  const hourList = selectList[0].querySelectorAll('li')
+  simulateWheelEvent(hourList, hour)
+  await delay(2 * 1000)
+  const minuteList = selectList[1].querySelectorAll('li')
+  simulateWheelEvent(minuteList, minute)
+}
+
+
+// 模拟鼠标滚轮事件的函数
+function simulateWheelEvent(list, target) {
+  try {
+    // 找到目标 li 元素（文本内容为 "03" 的 li）
+    const targetLi = Array.from(list).find((li) => li.textContent.trim() === target)
+
+    if (targetLi) {
+      // 使用 scrollIntoView 方法滚动到目标元素
+      targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      console.log('未找到目标元素')
+    }
+  } catch (error) {
+    console.error('模拟滚轮事件出错:', error)
+    $handleError(error)
+  }
+}
+// 模拟双击事件的函数
+function simulateDoubleClick(element) {
+  console.log(element, 'element')
+  try {
+    console.log('模拟双击事件-开始')
+    element.dblclick()
+    // const doubleClickEvent = new MouseEvent('dblclick', {
+    //   bubbles: true,
+    //   cancelable: true,
+    //   view: window
+    // });
+  } catch (error) {
+    console.error('模拟双击事件出错:', error)
+    $handleError(error)
+  }
+}
+
 
 
 
@@ -74,8 +253,8 @@ init();
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
     '收到来自 ' +
-    (sender.tab ? 'content-script(' + sender.tab.url + ')' : 'popup或者background') +
-    ' 的消息：',
+      (sender.tab ? 'content-script(' + sender.tab.url + ')' : 'popup或者background') +
+      ' 的消息：',
     request
   )
 
@@ -105,7 +284,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       childLogout()
       break
 
-    case "pause":
+    case 'pause':
       // 暂停
       pauseAllTask()
       break
@@ -160,7 +339,6 @@ const maxRetryCount = 5
 // 文件编号
 const fileNo = 'VIDEO240702112'
 
-
 // 发布按钮
 let publishButton = null
 
@@ -173,7 +351,6 @@ async function getTableAll() {
     const rows = table.querySelectorAll('tr')
 
     if (rows) {
-
       // 遍历所有的tr元素
       rows.forEach((row) => {
         // 创建一个空对象来保存每行的数据
@@ -226,7 +403,6 @@ async function getTableAll() {
 
 async function syncAccount() {
   try {
-
     // 调用接口传递给后台
     const res = await $Request('/admin/juzhensubaccount/accountManage', {
       params: dataList
@@ -270,16 +446,15 @@ async function getTable(task) {
     if (accountList && accountList.length) {
       // 获取accountList中id为ID的元素
       const childAccount = accountList.find((item) => item.dyAccountNo === task.dyUserId)
-      console.log(childAccount, 'childAccount');
+      console.log(childAccount, 'childAccount')
       if (childAccount) {
         // 点击子账号的操作按钮
         childAccount.actions[0].click()
       } else {
-        console.log('未找到子账号');
+        console.log('未找到子账号')
         localStorage.setItem('taskStatus', '0')
         reloadPage()
       }
-
     }
   } catch (error) {
     $handleError(error)
@@ -300,7 +475,7 @@ async function getMaxPage() {
   const pageDiv = await waitForElement(
     '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
   )
-  console.log(pageDiv, 'pageDiv');
+  console.log(pageDiv, 'pageDiv')
   if (pageDiv) {
     // 获取div的文本内容
     const pageText = pageDiv.innerText.trim()
@@ -358,7 +533,7 @@ function goToPage(page) {
   return new Promise(async (resolve, reject) => {
     await getMaxPage()
     page = Number(page)
-    console.log('跳转到：', page);
+    console.log('跳转到：', page)
     if (page < 1 || page > maxPage) {
       console.error('页码超出范围')
       reject('页码超出范围')
@@ -378,31 +553,27 @@ function goToPage(page) {
   })
 }
 
-
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-
   const task = parseJSON(localStorage.getItem('task'), {})
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
-  console.log(childIndex, 'childIndex');
+  console.log(childIndex, 'childIndex')
   // 先判断childIndex在第几页
   if (childIndex === -1) {
-    console.log(' 子账号没找到 ');
+    console.log(' 子账号没找到 ')
     return
   }
   // 每页5个元素，计算元素所在的页码
-  const itemsPerPage = 5;
-  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage);
+  const itemsPerPage = 5
+  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
 
-  console.log(pageIndex, 'pageIndex');
+  console.log(pageIndex, 'pageIndex')
   // 进入对应页码
   await goToPage(pageIndex || 1)
 
   // 获取当前页面的table
   getTable(task)
-
-
 }
 
 // 获取要开始的任务
@@ -434,12 +605,10 @@ async function toChildUploadPage() {
       navListItems[1].click()
       console.log('navListItems clicked')
     }
-
   } catch (error) {
     $handleError(error)
   }
 }
-
 
 // 通过接口获取文件路径
 async function uploadVideoFn() {
@@ -448,10 +617,11 @@ async function uploadVideoFn() {
   const { filePath, taskName } = task
 
   try {
-
     const file = await urlToFile(filePath, taskName)
     // 获取上传按钮，并将file上传
-    const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', { isAll: true })
+    const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', {
+      isAll: true
+    })
     if (inputElement[0]) {
       const dataTransfer = new DataTransfer()
       dataTransfer.items.add(file)
@@ -467,13 +637,10 @@ async function uploadVideoFn() {
     } else {
       console.error('Upload input element not found')
     }
-
   } catch (error) {
     $handleError(error)
   }
-
 }
-
 
 // 上传后检查是否加载成功
 async function checkUploadVideo() {
@@ -506,67 +673,65 @@ async function checkUploadVideo() {
 async function publishVideo(_videoElement) {
   try {
     // 检查是否需要重新写入缓存
-    const cacheFlag = localStorage.getItem('isResetCache');
-    console.log(cacheFlag, 'cacheFlag');
+    const cacheFlag = localStorage.getItem('isResetCache')
+    console.log(cacheFlag, 'cacheFlag')
 
     if (cacheFlag !== '1') {
-
-      const flag = await autoFillForm();
+      const flag = await autoFillForm()
       if (flag) {
         reloadPage()
       } else {
-        console.log('表单自动填写失败');
+        console.log('表单自动填写失败')
       }
     } else {
       // 已经填写过表单，进行发布操作
-      console.log('表单已自动填写，进行发布操作');
-      const publishButton = await findPublishButton();
+      console.log('表单已自动填写，进行发布操作')
+      const publishButton = await findPublishButton()
 
       if (publishButton) {
         publishSuccess()
-        console.log('点击发布按钮');
+        console.log('点击发布按钮')
 
-        publishButton.click();
+        publishButton.click()
 
-        await delay(2000);
+        await delay(2000)
         // 点击发布按钮后，进入内容管理页面
-        window.location.href = childContentPage;
+        window.location.href = childContentPage
       } else {
-        console.error('未找到发布按钮');
+        console.error('未找到发布按钮')
       }
     }
   } catch (error) {
-    console.error('表单自动填写过程中出现错误:', error);
+    console.error('表单自动填写过程中出现错误:', error)
   }
 }
 
 // 查找并返回发布按钮
 async function findPublishButton() {
-  const publishButtons = await waitForElement('button', { isAll: true });
+  const publishButtons = await waitForElement('button', { isAll: true })
   // 遍历按钮，查找内容为 "发布" 的按钮
   for (const button of publishButtons) {
     if (button.textContent.trim() === '发布') {
-      return button;
+      return button
     }
   }
-  return null;
+  return null
 }
-
 
 // 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
 async function autoFillForm() {
   return new Promise(async (resolve, reject) => {
-    let flag = false;
+    let flag = false
     try {
       // 获取任务数据
       const task = parseJSON(localStorage.getItem('task'), {})
 
       // 获取缓存数据
       const cacheList = await getStorageKey()
-      // 
+      //
       if (cacheList && cacheList.length) {
-        console.log('获取缓存list', cacheList);
-        cacheList.forEach(item => {
+        console.log('获取缓存list', cacheList)
+        cacheList.forEach((item) => {
           const cacheItem = localStorage.getItem(item)
           if (!cacheItem || cacheItem === 'null' || cacheItem === 'undefined') {
             return
@@ -583,24 +748,24 @@ async function autoFillForm() {
               activity: [],
               caption: task.remark
             }
-          };
-          const newData = JSON.stringify({ type, cache: newCacheData });
-          localStorage.setItem(item, newData);
+          }
+          const newData = JSON.stringify({ type, cache: newCacheData })
+          localStorage.setItem(item, newData)
         })
       } else {
-        console.log('没有找到缓存');
+        console.log('没有找到缓存')
         return
       }
       // 设置标志位，表明已经填写过表单
-      console.log('表单自动填写成功');
-      localStorage.setItem('isResetCache', '1');
-      flag = true;
-      resolve(flag); // 返回成功标志
+      console.log('表单自动填写成功')
+      localStorage.setItem('isResetCache', '1')
+      flag = true
+      resolve(flag) // 返回成功标志
     } catch (error) {
-      console.error('autoFillForm 出现错误:', error);
-      reject(error); // 返回错误信息
+      console.error('autoFillForm 出现错误:', error)
+      reject(error) // 返回错误信息
     }
-  });
+  })
 }
 
 // 发布成功后通知后台
@@ -608,11 +773,12 @@ async function publishSuccess() {
   try {
     // 获取任务数据
     const task = parseJSON(localStorage.getItem('task'), {})
-    const { id, filePath } = task;
+    const { id, filePath } = task
     const api = '/admin/autopublishtask/updateAutoPublishTask'
     const res = await $Request(api, {
       params: {
-        id: id, dyVideoUrl: filePath
+        id: id,
+        dyVideoUrl: filePath
       }
     })
     console.log(res, '发布成功接口---res')
@@ -624,77 +790,74 @@ async function publishSuccess() {
 // 退出登录
 async function childLogout() {
   try {
-    await delay(2000); // 等待页面加载
+    await delay(2000) // 等待页面加载
 
-    const logoutButton = await waitForElement('.semi-navigation-footer .semi-avatar');
+    const logoutButton = await waitForElement('.semi-navigation-footer .semi-avatar')
     // 获取按钮的具体位置
-    const logoutButtonRect = logoutButton.getBoundingClientRect();
+    const logoutButtonRect = logoutButton.getBoundingClientRect()
     simulateMouseMove(
       logoutButtonRect.x + logoutButtonRect.width / 2,
       logoutButtonRect.y + logoutButtonRect.height / 2
-    );
-    console.log('logoutButton clicked');
+    )
+    console.log('logoutButton clicked')
 
-    await delay(2000); // 等待下拉菜单出现
-    const logout = await waitForElement('.semi-portal .logout');
-    console.log(logout);
+    await delay(2000) // 等待下拉菜单出现
+    const logout = await waitForElement('.semi-portal .logout')
+    console.log(logout)
 
     if (logout) {
-      logout.click();
-      pageFlag = false;
-      console.log('logout clicked');
+      logout.click()
+      pageFlag = false
+      console.log('logout clicked')
     } else {
       // 重新进入子账号页面
       window.location.href = childContentPage
     }
   } catch (error) {
-    console.error('Error during logout:', error);
+    console.error('Error during logout:', error)
   }
 }
 
-
 // 工具函数
 
-// 
+//
 async function waitForElement(selector, options = {}) {
-  const querySelectorAll = options.isAll || false;
-  const timeout = options.timeout || 10000; // 每次尝试的超时时间
-  const interval = options.interval || 1000; // 检查间隔
-  const retryDelay = options.retryDelay || 2000; // 每次重试之间的等待时间
-  const maxRetries = options.maxRetries || 50; // 最大重试次数
+  const querySelectorAll = options.isAll || false
+  const timeout = options.timeout || 10000 // 每次尝试的超时时间
+  const interval = options.interval || 1000 // 检查间隔
+  const retryDelay = options.retryDelay || 2000 // 每次重试之间的等待时间
+  const maxRetries = options.maxRetries || 50 // 最大重试次数
 
-  let retries = 0;
+  let retries = 0
 
   function checkElement() {
-    return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector);
+    return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector)
   }
 
   // 等待 DOMContentLoaded 事件
   if (document.readyState === 'loading') {
-    await new Promise(resolve => {
-      document.addEventListener('DOMContentLoaded', resolve, { once: true });
-    });
+    await new Promise((resolve) => {
+      document.addEventListener('DOMContentLoaded', resolve, { once: true })
+    })
   }
 
   while (retries < maxRetries) {
-    const startTime = Date.now();
+    const startTime = Date.now()
     while (Date.now() - startTime < timeout) {
-      const element = checkElement();
+      const element = checkElement()
       if (element && (querySelectorAll ? element.length > 0 : true)) {
-        return element;
+        return element
       }
-      await delay(interval);
+      await delay(interval)
     }
     // 如果达到这里，说明本次尝试超时
-    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`);
-    await delay(retryDelay);
-    retries++;
+    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`)
+    await delay(retryDelay)
+    retries++
   }
 
-  throw new Error(`Element not found after ${maxRetries} retries: ${selector}`);
+  throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
 }
-
-
 
 // 模拟鼠标移动的函数
 function simulateMouseMove(x, y) {
@@ -704,10 +867,9 @@ function simulateMouseMove(x, y) {
     cancelable: true,
     clientX: x,
     clientY: y
-  });
-  document.dispatchEvent(event);
+  })
+  document.dispatchEvent(event)
 }
-
 
 // 延迟函数
 function delay(ms) {
@@ -730,7 +892,6 @@ async function urlToFile(url, name) {
 
 // 模拟鼠标移动到指定坐标
 function simulateMouseMove(x, y) {
-
   const mouseEnterEvent = new MouseEvent('mouseenter', {
     view: window,
     bubbles: true,
@@ -759,39 +920,36 @@ function simulateMouseMove(x, y) {
   }
 }
 
-
-
 // // TODO: 暂时用内部的，后续需要改成外部的request.js
 
 // 通用的调用接口方法
 function $Request(url = '', { options = {}, params = {} } = {}) {
   const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
   const requestURL = baseURL + url
-  console.log('接口请求开始');
+  console.log('接口请求开始')
 
   return new Promise((resolve, reject) => {
     fetch(requestURL, {
       method: options.method || 'POST',
       headers: {
-        'Content-Type': options.contentType || 'application/json',
+        'Content-Type': options.contentType || 'application/json'
       },
-      ...(options.method === 'GET' ? {} : { body: JSON.stringify(params) }),
-
+      ...(options.method === 'GET' ? {} : { body: JSON.stringify(params) })
     })
-      .then(response => response.json())
-      .then(data => {
-        console.log(data, '接口请求返回的data');
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data, '接口请求返回的data')
         if (data.code === 200) {
-          resolve(data.data);
+          resolve(data.data)
         } else {
-          reject(new Error(`接口返回错误: ${data.message}`));
+          reject(new Error(`接口返回错误: ${data.message}`))
         }
       })
-      .catch(error => {
-        console.error('Fetch Error:', error);
-        reject(error);
-      });
-  });
+      .catch((error) => {
+        console.error('Fetch Error:', error)
+        reject(error)
+      })
+  })
 }
 
 // 错误处理函数，将错误信息存储在 localStorage 中
@@ -811,76 +969,74 @@ function $handleError(error) {
 function removeStorageKey() {
   return new Promise((resolve, reject) => {
     // 定义要查找的前缀
-    const prefix = 'publish_form_cache:';
+    const prefix = 'publish_form_cache:'
     // 遍历 localStorage 中的所有键
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+      const key = localStorage.key(i)
 
       // 检查键是否以指定前缀开头
       if (key.includes(prefix)) {
-        console.log('key----' + key);
+        console.log('key----' + key)
         // 获取该键的值
-        const cachedData = localStorage.getItem(key);
+        const cachedData = localStorage.getItem(key)
         // 检查键是否存在
         if (cachedData) {
           // 删除指定的键
-          localStorage.removeItem(cachedData);
-          resolve('已删除指定的键');
+          localStorage.removeItem(cachedData)
+          resolve('已删除指定的键')
         } else {
-          reject(new Error('未找到指定的键'));
+          reject(new Error('未找到指定的键'))
         }
       }
     }
-  });
+  })
 }
 
 function getStorageKey() {
   return new Promise((resolve, reject) => {
     // 定义要查找的前缀
-    const prefix = 'publish_form_cache:';
-    const cachedDataList = [];
+    const prefix = 'publish_form_cache:'
+    const cachedDataList = []
 
     // 遍历 localStorage 中的所有键
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+      const key = localStorage.key(i)
 
       // 检查键是否以指定前缀开头
       if (key.includes(prefix)) {
-        console.log('key----' + key);
+        console.log('key----' + key)
 
         // 获取该键的值
-        const cachedData = localStorage.getItem(key);
-        console.log('找到的数据:', parseJSON(cachedData, []));
+        const cachedData = localStorage.getItem(key)
+        console.log('找到的数据:', parseJSON(cachedData, []))
         // 将数据添加到结果列表中
-        cachedDataList.push(key);
-
-
+        cachedDataList.push(key)
       }
     }
 
     // 检查是否找到了匹配的数据
     if (cachedDataList.length > 0) {
-      resolve(cachedDataList);
+      resolve(cachedDataList)
     } else {
-      reject(new Error('未找到匹配的键'));
+      reject(new Error('未找到匹配的键'))
     }
-  });
+  })
 }
 
 function waitForPageLoad() {
   return new Promise((resolve) => {
     if (document.readyState === 'complete') {
-      resolve();
+      resolve()
     } else {
       window.addEventListener('load', () => {
-        resolve();
-      });
+        resolve()
+      })
     }
-  });
+  })
 }
 
 async function reloadPage(timeout = 4000) {
-  await delay(timeout);
+  await delay(timeout)
   window.location.reload()
 }
 
@@ -896,11 +1052,5 @@ function parseJSON(jsonString = '', defaultValue = null) {
 // 发送通知
 function messageCreate(message) {
   // 发送消息
-  chrome.runtime.sendMessage({ action: "fromContent", message });
+  chrome.runtime.sendMessage({ action: 'fromContent', message })
 }
-
-
-
-
-
-
