@@ -9,8 +9,8 @@
  * */
 
 // basicURL
-// const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
-const BaseUrl = 'https://wujie.top/chromePath/dev-api/videoclip'
+const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
+// const BaseUrl = 'https://wujie.top/chromePath/dev-api/videoclip'
 // 获取任务task的api
 const getTaskApi = '/admin/autopublishtask/getNoPublicData'
 // 同步账号的api
