@@ -8,15 +8,15 @@
  * 退出登录
  * */
 
-//
-const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
+// basicURL
+const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
 // 获取任务task的api
 const getTaskApi = '/admin/autopublishtask/getNoPublicData'
 // 同步账号的api
 const syncAccountApi = '/admin/juzhensubaccount/accountManage'
 // 发布成功的api
 const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
-//
+// 记录失败日志的api
 const failedApi = '/admin/autopublishtask/failAutoPublishTask'
 
 // DOM 操作延迟时间
@@ -1113,9 +1113,16 @@ function messageCreate(message) {
 // // TODO: 暂时用内部的，后续需要改成外部的request.js
 
 // 通用的调用接口方法
-function $Request(url = '', { options = {}, params = {} } = {}) {
-  const requestURL = baseURL + url
-  console.log('接口请求开始')
+function $Request(api = '', { options = {}, params = {} } = {}) {
+  const requestURL = BaseUrl + api
+  console.log(
+    '接口请求开始：' +
+      JSON.stringify({
+        api,
+        options,
+        params
+      })
+  )
 
   return new Promise((resolve, reject) => {
     fetch(requestURL, {
@@ -1127,17 +1134,18 @@ function $Request(url = '', { options = {}, params = {} } = {}) {
     })
       .then((response) => response.json())
       .then((data) => {
-        console.log(data, '接口请求返回的data')
+        console.log(api + ':接口请求返回的data', data)
         if (data.code === 200) {
           resolve(data.data)
         } else {
           $handleError(`接口返回错误: ${data.message}`)
+          messageCreate(`接口返回错误: ${JSON.stringify(data)}`)
           reject(new Error(`接口返回错误: ${data.message}`))
         }
       })
       .catch((error) => {
-        console.error('Fetch Error:', error)
         $handleError(`Fetch Error:: ${error}`)
+        messageCreate(`Fetch Error:: ${error}`)
         reject(error)
       })
   })
