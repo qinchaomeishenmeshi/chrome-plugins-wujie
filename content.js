@@ -8,32 +8,38 @@
  * 退出登录
  * */
 
-// basicURL
-const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
-// const BaseUrl = 'https://wujie.top/chromePath/dev-api/videoclip'
-// 获取任务task的api
-const getTaskApi = '/admin/autopublishtask/getNoPublicData'
-// 同步账号的api
-const syncAccountApi = '/admin/juzhensubaccount/accountManage'
-// 发布成功的api
-const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
-// 记录失败日志的api
-const failedApi = '/admin/autopublishtask/failAutoPublishTask'
+const API = {
+  // basicURL
+  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  // 获取任务task的api
+  getTaskApi: '/admin/autopublishtask/getNoPublicData',
+  // 同步账号的api
+  syncAccountApi: '/admin/juzhensubaccount/accountManage',
+  // 发布成功的api
+  updateAutoPublishTaskApi: '/admin/autopublishtask/updateAutoPublishTask',
+  // 记录失败日志的api
+  failedApi: '/admin/autopublishtask/failAutoPublishTask'
+}
 
-// DOM 操作延迟时间
-const DOM_DELAY = 2000
-// 页面加载延迟时间
-const PAGE_DELAY = 5000
-// 机构号首页
-const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
-// 子账号首页
-const childCreatorHomePage = 'https://creator.douyin.com/'
-// 子账号内容管理页码
-const childContentPage = 'https://creator.douyin.com/content/manage'
-// 子账号上传页面
-const childUploadPage = 'https://creator.douyin.com/content/'
-// 子账号发布页面
-const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+const DELAY = {
+  // DOM 操作延迟时间
+  DOM_DELAY: 2000,
+  // 页面加载延迟时间
+  PAGE_DELAY: 5000
+}
+
+const PAGE = {
+  // 机构号首页
+  creatorHomePage: 'https://creator.douyin.com/creator-micro/home',
+  // 子账号首页
+  childCreatorHomePage: 'https://creator.douyin.com/',
+  // 子账号内容管理页码
+  childContentPage: 'https://creator.douyin.com/content/manage',
+  // 子账号上传页面
+  childUploadPage: 'https://creator.douyin.com/content/',
+  // 子账号发布页面
+  childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+}
 
 // 页面加载完成后执行监听
 watchPage()
@@ -97,10 +103,10 @@ async function watchPage() {
 
   // 分页面进行操作
   switch (window.location.href) {
-    case creatorHomePage: // 机构号首页-获取任务
+    case PAGE.creatorHomePage: // 机构号首页-获取任务
       getTask()
       break
-    case childCreatorHomePage: // 子账号首页
+    case PAGE.childCreatorHomePage: // 子账号首页
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
@@ -108,17 +114,17 @@ async function watchPage() {
       // 跳转到子账号页面的上传
       toChildUploadPage()
       break
-    case childUploadPage: // 子账号上传页面
+    case PAGE.childUploadPage: // 子账号上传页面
       //  点击上传按钮
       uploadVideoFn()
       break
 
-    case childPublishPage: // 子账号发布页面
+    case PAGE.childPublishPage: // 子账号发布页面
       // 点击发布按钮
       publishVideo()
       break
 
-    case childContentPage: // 子账号内容管理页面
+    case PAGE.childContentPage: // 子账号内容管理页面
       // 退出代运营状态
       childLogout()
       break
@@ -131,7 +137,7 @@ async function watchPage() {
 // 时间选择框操作 - 开始
 // 时间选择
 async function publishTimePickerSelect(_dateTime) {
-  const task = parseJSON(localStorage.getItem('task'), {})
+  const task = getCacheTask()
   const t = _dateTime || task.sendTime
   return new Promise(async (resolve, reject) => {
     // 拆解dateTime
@@ -146,17 +152,17 @@ async function publishTimePickerSelect(_dateTime) {
 
     // 选择发布方式
     await selectPublishType(true)
-    await delay(DOM_DELAY)
+    await delay(DELAY.DOM_DELAY)
     // 打开日期选择器
     await selectDateTime()
-    await delay(DOM_DELAY)
+    await delay(DELAY.DOM_DELAY)
     // 找到当前日期
     const currentDateTime = await getCurrentDate()
     if (currentDateTime === t) {
       console.log('当前选择为dateTime日期，则匹配时间')
       // 选择时间
       await selectTime(hour, minute)
-      await delay(DOM_DELAY)
+      await delay(DELAY.DOM_DELAY)
       resolve(true)
     } else {
       const currentYear = currentDateTime.split('-')[0]
@@ -166,22 +172,22 @@ async function publishTimePickerSelect(_dateTime) {
         console.log('年月相同，直接选择日期')
         // 选择日期
         await selectDate(day)
-        await delay(DOM_DELAY)
+        await delay(DELAY.DOM_DELAY)
         // // 选择时间
         await selectTime(hour, minute)
-        await delay(DOM_DELAY)
+        await delay(DELAY.DOM_DELAY)
         resolve(true)
       } else {
         console.log('年月不同，先选择年月，再选择日期')
         // 选择年月
         await selectYearMonth(year, month)
-        await delay(DOM_DELAY)
+        await delay(DELAY.DOM_DELAY)
         // 选择日期
         await selectDate(day)
-        await delay(DOM_DELAY)
+        await delay(DELAY.DOM_DELAY)
         // 选择时间
         await selectTime(hour, minute)
-        await delay(DOM_DELAY)
+        await delay(DELAY.DOM_DELAY)
         resolve(true)
       }
     }
@@ -234,7 +240,7 @@ async function selectYearMonth(year, month) {
   console.log(datePickerHeader, 'datePickerHeader')
   // 如果不是，则点击
   datePickerHeader.click()
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   //  年份列表
   const yearMonthSelect = await waitForElement(
     '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
@@ -243,12 +249,12 @@ async function selectYearMonth(year, month) {
   const yearList = yearMonthSelect[0].querySelectorAll('li')
   console.log(yearList, 'yearList')
   simulateWheelEvent(yearList, year)
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   // 月份列表
   const monthList = yearMonthSelect[1].querySelectorAll('li')
   console.log(monthList, 'monthList')
   simulateWheelEvent(monthList, month)
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   // 点击返回日期选择
   const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
   console.log(backBtn, 'backBtn')
@@ -273,7 +279,7 @@ async function selectTime(hour, minute) {
   const timePicker = await waitForElement('.semi-datepicker-switch-time')
   console.log(timePicker, 'timePicker')
   timePicker.click()
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   // 时间列表
   const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
     isAll: true
@@ -281,7 +287,7 @@ async function selectTime(hour, minute) {
   // 获取要触发双击事件的 li 元素
   const hourList = selectList[0].querySelectorAll('li')
   await simulateWheelEvent(hourList, hour)
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   const minuteList = selectList[1].querySelectorAll('li')
   await simulateWheelEvent(minuteList, minute)
 }
@@ -296,19 +302,19 @@ async function reloadTable() {
     // 如果不是最后一页，轮流跳转到最后一页
     while (currentPage < maxPage) {
       nextPage()
-      await delay(PAGE_DELAY)
+      await delay(DELAY.PAGE_DELAY)
     }
     // 如果是最后一页，再次获取最大页码
     await getMaxPage()
     // 如果不是第一页，轮流跳转到第一页
     while (currentPage > 1) {
       prevPage()
-      await delay(PAGE_DELAY)
+      await delay(DELAY.PAGE_DELAY)
     }
     // 如果是第一页，再次获取最大页码
     await getMaxPage()
     // 10秒后重新获取表格数据
-    await delay(PAGE_DELAY)
+    await delay(DELAY.PAGE_DELAY)
     reloadTable()
   } catch (error) {
     $handleError(error)
@@ -393,7 +399,7 @@ async function syncAccount() {
   const params = [...new Set(dataList)]
   try {
     // 调用接口传递给后台
-    const res = await $Request(syncAccountApi, {
+    const res = await $Request(API.syncAccountApi, {
       params
     })
     localStorage.setItem('dataList', JSON.stringify(params))
@@ -490,7 +496,7 @@ async function prevPage() {
     if (prevPageButton) {
       prevPageButton.click()
       console.log('prevPageButton clicked')
-      await delay(DOM_DELAY) // 等待页面加载完成
+      await delay(DELAY.DOM_DELAY) // 等待页面加载完成
       await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到上一页按钮')
@@ -509,7 +515,7 @@ async function nextPage() {
     if (nextPageButton) {
       nextPageButton.click()
       console.log('nextPageButton clicked')
-      await delay(DOM_DELAY) // 等待页面加载完成
+      await delay(DELAY.DOM_DELAY) // 等待页面加载完成
       await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到下一页按钮')
@@ -517,7 +523,7 @@ async function nextPage() {
   } else {
     console.log('已经是最后一页')
   }
-  await delay(DOM_DELAY) // 等待页面加载
+  await delay(DELAY.DOM_DELAY) // 等待页面加载
 }
 
 // 跳转到某一页
@@ -549,7 +555,7 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-  const task = parseJSON(localStorage.getItem('task'), {})
+  const task = getCacheTask()
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
   console.log(childIndex, 'childIndex')
@@ -571,23 +577,32 @@ async function goToChildPage() {
 }
 
 // 自动化任务执行-开始
+
 // 获取要开始的任务
 async function getTask() {
   messageCreate('获取要开始的任务')
   try {
-    const res = await $Request(getTaskApi)
+    const res = await $Request(API.getTaskApi)
     if (!res) {
       localStorage.setItem('taskStatus', '0')
       messageCreate('没有新的任务')
       return
     }
     localStorage.setItem('task', JSON.stringify(res))
-    await delay(DOM_DELAY)
+    await delay(DELAY.DOM_DELAY)
     // 进入子账号页面
     goToChildPage()
   } catch (error) {
+    localStorage.setItem('taskStatus', '0')
+    messageCreate('开始任务失败：' + JSON.stringify(error))
     $handleError(error)
   }
+}
+
+// 获取缓存的task任务
+function getCacheTask() {
+  const task = parseJSON(localStorage.getItem('task'), {})
+  return task?.id ? task : {}
 }
 
 // 获取子页面上导航栏
@@ -609,7 +624,7 @@ async function toChildUploadPage() {
 async function uploadVideoFn() {
   messageCreate('准备上传视频')
   // 获取任务数据
-  const task = parseJSON(localStorage.getItem('task'), {})
+  const task = getCacheTask()
   const { filePath, videoName } = task
   try {
     const file = await urlToFile(filePath, videoName)
@@ -657,7 +672,7 @@ async function checkUploadVideo() {
     } else {
       // 如果视频元素不存在，输出错误信息,并继续调用checkUploadVideo
       $handleError('未找到视频元素')
-      await delay(DOM_DELAY)
+      await delay(DELAY.DOM_DELAY)
       checkUploadVideo()
     }
   } catch (error) {
@@ -686,16 +701,16 @@ async function publishVideo(_videoElement) {
       messageCreate('表单已自动填写，进行发布操作')
       await publishTimePickerSelect()
       console.log('点击发布按钮')
-      await delay(DOM_DELAY)
+      await delay(DELAY.DOM_DELAY)
       const publishButtons = await waitForElement('button', { isAll: true })
       // 遍历按钮，查找内容为 "发布" 的按钮
       for (const button of publishButtons) {
         if (button.textContent.trim() === '发布') {
           button.click()
           await publishSuccess()
-          await delay(PAGE_DELAY)
+          await delay(DELAY.PAGE_DELAY)
           // 退出代运营状态
-          window.location.href = childContentPage
+          window.location.href = PAGE.childContentPage
         }
       }
     }
@@ -713,7 +728,7 @@ async function autoFillForm() {
     let flag = false
     try {
       // 获取任务数据
-      const task = parseJSON(localStorage.getItem('task'), {})
+      const task = getCacheTask()
 
       // 获取缓存数据
       const cacheList = await getStorageKey()
@@ -750,7 +765,7 @@ async function autoFillForm() {
       if (task.topicName) {
         await topicOperation(task.topicName)
       }
-      await delay(DOM_DELAY)
+      await delay(DELAY.DOM_DELAY)
 
       // 如果有poi地址，需要做poi操作
       if (task && task.task && task.task.poiAddressName) {
@@ -774,7 +789,7 @@ async function autoFillForm() {
 // 话题操作
 async function topicOperation(txt) {
   txt = txt.replace('#', '')
-  await delay(PAGE_DELAY)
+  await delay(DELAY.PAGE_DELAY)
   const element = await waitForElement('.mention-suggest-mount-dom span', { isAll: true })
   console.log(element, 'element', txt)
   // 找到所有的span标签，如果是#则点击索引为0的span标签
@@ -793,12 +808,12 @@ async function topicOperation(txt) {
 
 // POI地址操作
 async function poiOperation(txt) {
-  await delay(PAGE_DELAY)
+  await delay(DELAY.PAGE_DELAY)
   const select = await waitForElement('#douyin_creator_pc_anchor_jump .semi-select-selection')
   console.log(select, 'select')
   // 下拉选择点击
   select.click()
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   // 找到input
   const input = await waitForElement(
     '#douyin_creator_pc_anchor_jump .semi-select-selection input[type="text"]'
@@ -807,7 +822,7 @@ async function poiOperation(txt) {
   // 触发input的input事件
   input.dispatchEvent(new Event('input', { bubbles: true }))
   console.log(input, 'input----dispatchEvent', txt)
-  await delay(DOM_DELAY)
+  await delay(DELAY.DOM_DELAY)
   // 找到popover-content
   const popoverContent = await waitForElement(
     '.semi-popover .semi-popover-content .semi-select-option-list .semi-select-option',
@@ -827,8 +842,8 @@ async function poiOperation(txt) {
 async function publishSuccess() {
   try {
     // 获取任务数据
-    const task = parseJSON(localStorage.getItem('task'), {})
-    const res = await $Request(updateAutoPublishTaskApi, {
+    const task = getCacheTask()
+    const res = await $Request(API.updateAutoPublishTaskApi, {
       params: {
         id: task.id
       }
@@ -846,7 +861,7 @@ async function publishSuccess() {
 // 退出登录
 async function childLogout() {
   try {
-    await delay(DOM_DELAY) // 等待页面加载
+    await delay(DELAY.DOM_DELAY) // 等待页面加载
 
     const logoutButton = await waitForElement('.semi-navigation-footer .semi-avatar')
     // 获取按钮的具体位置
@@ -857,7 +872,7 @@ async function childLogout() {
     )
     console.log('logoutButton clicked')
 
-    await delay(DOM_DELAY) // 等待下拉菜单出现
+    await delay(DELAY.DOM_DELAY) // 等待下拉菜单出现
     const logout = await waitForElement('.semi-portal .logout')
     console.log(logout)
 
@@ -866,7 +881,7 @@ async function childLogout() {
       console.log('logout clicked')
     } else {
       // 重新进入子账号页面
-      window.location.href = childContentPage
+      window.location.href = PAGE.childContentPage
     }
   } catch (error) {
     console.error('Error during logout:', error)
@@ -882,8 +897,8 @@ async function childLogout() {
 async function waitForElement(selector, options = {}) {
   const querySelectorAll = options.isAll || false
   const timeout = options.timeout || 10000 // 每次尝试的超时时间
-  const interval = options.interval || DOM_DELAY // 检查间隔
-  const retryDelay = options.retryDelay || DOM_DELAY // 每次重试之间的等待时间
+  const interval = options.interval || DELAY.DOM_DELAY // 检查间隔
+  const retryDelay = options.retryDelay || DELAY.DOM_DELAY // 每次重试之间的等待时间
   const maxRetries = options.maxRetries || 50 // 最大重试次数
 
   let retries = 0
@@ -1091,7 +1106,7 @@ function waitForPageLoad() {
 }
 
 // 重新加载页面
-async function reloadPage(timeout = PAGE_DELAY) {
+async function reloadPage(timeout = DELAY.PAGE_DELAY) {
   await delay(timeout)
   window.location.reload()
 }
@@ -1125,7 +1140,7 @@ function messageCreate(message) {
 
 // 通用的调用接口方法
 function $Request(api = '', { options = {}, params = {} } = {}) {
-  const requestURL = BaseUrl + api
+  const requestURL = API.BaseUrl + api
   console.log(
     '接口请求开始：' +
       JSON.stringify({
@@ -1166,7 +1181,7 @@ async function $handleError(error) {
   console.log('发生错误:', error)
 
   // 获取当前任务和错误日志
-  const task = parseJSON(localStorage.getItem('task'), {})
+  const task = getCacheTask()
   const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
 
   console.log(errorLogs, 'errorLogs')
@@ -1184,7 +1199,7 @@ async function $handleError(error) {
   localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
 
   // 发送请求，报告任务失败
-  await $Request(failedApi, {
+  await $Request(API.failedApi, {
     params: {
       failedReason: task.id + ':' + (error.message || error) + '_____' + new Date().toLocaleString()
     }
