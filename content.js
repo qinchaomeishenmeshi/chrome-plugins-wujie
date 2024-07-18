@@ -8,6 +8,39 @@
  * 退出登录
  * */
 
+
+
+// 
+const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
+// 获取任务task的api
+const getTaskApi = '/admin/autopublishtask/getNoPublicData'
+// 同步账号的api
+const syncAccountApi = '/admin/juzhensubaccount/accountManage'
+// 发布成功的api
+const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
+
+// DOM 操作延迟时间
+const DOM_DELAY = 2000
+// 页面加载延迟时间
+const PAGE_DELAY = 5000
+// 机构号首页
+const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
+// 子账号首页
+const childCreatorHomePage = 'https://creator.douyin.com/'
+// 子账号内容管理页码
+const childContentPage = 'https://creator.douyin.com/content/manage'
+// 子账号上传页面
+const childUploadPage = 'https://creator.douyin.com/content/'
+// 子账号发布页面
+const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+
+
+
+// 页面加载完成后执行监听
+watchPage()
+
+
+
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
@@ -37,7 +70,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       break
     case 'end': // 结束任务
       localStorage.setItem('taskStatus', '0')
-      reloadPage()
+      window.location.reload()
       break
     case 'reload': // 保持登陆
       reloadTable()
@@ -50,34 +83,6 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   }
 })
 
-//
-const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
-// 获取任务task的api
-const getTaskApi = '/admin/autopublishtask/getNoPublicData'
-// 同步账号的api
-const syncAccountApi = '/admin/juzhensubaccount/accountManage'
-// 发布成功的api
-const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
-
-// DOM 操作延迟时间
-const DOM_DELAY = 2000
-// 页面加载延迟时间
-const PAGE_DELAY = 5000
-// 机构号首页
-const creatorHomePage = 'https://creator.douyin.com/creator-micro/home'
-// 子账号首页
-const childCreatorHomePage = 'https://creator.douyin.com/'
-// 子账号内容管理页码
-const childContentPage = 'https://creator.douyin.com/content/manage'
-// 子账号上传页面
-const childUploadPage = 'https://creator.douyin.com/content/'
-// 子账号发布页面
-const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
-
-const testPage = 'https://creator.douyin.com/creator-micro/content/publish?enter_from=publish_page'
-
-//
-watchPage()
 
 // 页面加载完成后执行监听
 async function watchPage() {
@@ -125,6 +130,8 @@ async function watchPage() {
   }
 }
 
+
+
 async function publishTimePickerSelect(_dateTime) {
   const task = parseJSON(localStorage.getItem('task'), {})
   const t = _dateTime || task.sendTime
@@ -161,7 +168,7 @@ async function publishTimePickerSelect(_dateTime) {
         console.log('年月相同，直接选择日期')
         // 选择日期
         await selectDate(day)
-        await delay(PAGE_DELAY)
+        await delay(DOM_DELAY)
         // // 选择时间
         await selectTime(hour, minute)
         await delay(DOM_DELAY)
@@ -170,10 +177,10 @@ async function publishTimePickerSelect(_dateTime) {
         console.log('年月不同，先选择年月，再选择日期')
         // 选择年月
         await selectYearMonth(year, month)
-        await delay(PAGE_DELAY)
+        await delay(DOM_DELAY)
         // 选择日期
         await selectDate(day)
-        await delay(PAGE_DELAY)
+        await delay(DOM_DELAY)
         // 选择时间
         await selectTime(hour, minute)
         await delay(DOM_DELAY)
@@ -479,10 +486,9 @@ async function getTable(task) {
         // 点击子账号的操作按钮
         childAccount.actions[0].click()
       } else {
-        localStorage.setItem('taskStatus', '0')
+        messageCreate('未找到子账号，请检查并重新同步账号')
         $handleError('未找到子账号')
-        messageCreate('未找到子账号')
-        await delay(PAGE_DELAY)
+        localStorage.setItem('taskStatus', '0')
         reloadPage()
       }
     }
@@ -780,9 +786,10 @@ async function autoFillForm() {
       if (task.topicName) {
         await topicOperation(task.topicName)
       }
+      await delay(DOM_DELAY)
 
       // 如果有poi地址，需要做poi操作
-      if (task.task.poiAddressName) {
+      if (task && task.task && task.task.poiAddressName) {
         await poiOperation(task.task.poiAddressName)
       }
 
@@ -809,10 +816,12 @@ async function topicOperation(txt) {
   // 找到所有的span标签，如果是#则点击索引为0的span标签
   if (element && element.length) {
     const span = Array.from(element).find((item) => item.innerText === txt)
-    // 找到span的父元素
-    const parent = span.parentElement
-    console.log(parent, 'span---话题点击了')
-    parent.click()
+    if (span) {
+      // 找到span的父元素
+      const parent = span.parentElement
+      console.log(parent, 'span---话题点击了')
+      parent.click()
+    }
   }
 }
 
