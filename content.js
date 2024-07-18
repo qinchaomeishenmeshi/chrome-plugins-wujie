@@ -8,7 +8,6 @@
  * 退出登录
  * */
 
-
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
@@ -26,7 +25,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   }
   sendResponse('我收到你的消息了：' + JSON.stringify(request))
   var action = request['action']
-  console.log('操作：action----'+action)
+  console.log('操作：action----' + action)
 
   switch (action) {
     case 'sync': // 同步账号
@@ -51,6 +50,14 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   }
 })
 
+//
+const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
+// 获取任务task的api
+const getTaskApi = '/admin/autopublishtask/getNoPublicData'
+// 同步账号的api
+const syncAccountApi = '/admin/juzhensubaccount/accountManage'
+// 发布成功的api
+const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
 
 // DOM 操作延迟时间
 const DOM_DELAY = 2000
@@ -67,8 +74,9 @@ const childUploadPage = 'https://creator.douyin.com/content/'
 // 子账号发布页面
 const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
 
+const testPage = 'https://creator.douyin.com/creator-micro/content/publish?enter_from=publish_page'
 
-// 
+//
 watchPage()
 
 // 页面加载完成后执行监听
@@ -76,7 +84,11 @@ async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
 
+  // poiOperation('佳兆业·金域天下三期')
+  // return
+
   const taskStatus = localStorage.getItem('taskStatus')
+
   if (taskStatus !== '1') {
     console.log('任务状态不为1，不执行操作')
     return
@@ -358,10 +370,11 @@ const maxRetryCount = 5
 
 // 同步账号信息
 async function syncAccount() {
+  const params = [...new Set(dataList)]
   try {
     // 调用接口传递给后台
-    const res = await $Request('/admin/juzhensubaccount/accountManage', {
-      params: dataList
+    const res = await $Request(syncAccountApi, {
+      params
     })
     localStorage.setItem('dataList', JSON.stringify(dataList))
     console.log(res, '同步账号接口---res')
@@ -468,6 +481,8 @@ async function getTable(task) {
       } else {
         localStorage.setItem('taskStatus', '0')
         $handleError('未找到子账号')
+        messageCreate('未找到子账号')
+        await delay(PAGE_DELAY)
         reloadPage()
       }
     }
@@ -594,8 +609,7 @@ async function goToChildPage() {
 // 获取要开始的任务
 async function getTask() {
   try {
-    const api = '/admin/autopublishtask/getNoPublicData'
-    const res = await $Request(api)
+    const res = await $Request(getTaskApi)
     if (!res) {
       localStorage.setItem('taskStatus', '0')
       messageCreate('没有新的任务')
@@ -748,10 +762,10 @@ async function autoFillForm() {
             ...cache,
             itemTitle: task.videoName,
             textResult: {
-              text: task.remark,
+              text: task.topicName ? task.remark + task.topicName : task.remark,
               textExtra: [],
               activity: [],
-              caption: task.remark
+              caption: task.topicName ? task.remark + task.topicName : task.remark
             }
           }
           const newData = JSON.stringify({ type, cache: newCacheData })
@@ -762,8 +776,19 @@ async function autoFillForm() {
         $handleError('没有找到缓存')
         return
       }
-      // 设置标志位，表明已经填写过表单
+      // 如果有话题，需要做话题操作
+      if (task.topicName) {
+        await topicOperation(task.topicName)
+      }
+
+      // 如果有poi地址，需要做poi操作
+      if (task.task.poiAddressName) {
+        await poiOperation(task.task.poiAddressName)
+      }
+
       console.log('表单自动填写成功')
+
+      // 设置标志位，表明已经填写过表单
       localStorage.setItem('isResetCache', '1')
       flag = true
       resolve(flag) // 返回成功标志
@@ -775,16 +800,60 @@ async function autoFillForm() {
   })
 }
 
+// 话题操作
+async function topicOperation(txt) {
+  txt = txt.replace('#', '')
+  await delay(PAGE_DELAY)
+  const element = await waitForElement('.mention-suggest-mount-dom span', { isAll: true })
+  console.log(element, 'element', txt)
+  // 找到所有的span标签，如果是#则点击索引为0的span标签
+  if (element && element.length) {
+    const span = Array.from(element).find((item) => item.innerText === txt)
+    // 找到span的父元素
+    const parent = span.parentElement
+    console.log(parent, 'span---话题点击了')
+    parent.click()
+  }
+}
+
+// POI地址操作
+async function poiOperation(txt) {
+  await delay(PAGE_DELAY)
+  const select = await waitForElement('#douyin_creator_pc_anchor_jump .semi-select-selection')
+  console.log(select, 'select')
+  // 下拉选择点击
+  select.click()
+  await delay(DOM_DELAY)
+  // 找到input
+  const input = await waitForElement(
+    '#douyin_creator_pc_anchor_jump .semi-select-selection input[type="text"]'
+  )
+  input.value = txt
+  // 触发input的input事件
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+  console.log(input, 'input----dispatchEvent', txt)
+  await delay(DOM_DELAY)
+  // 找到popover-content
+  const popoverContent = await waitForElement(
+    '.semi-popover .semi-popover-content .semi-select-option-list .semi-select-option',
+    { isAll: true }
+  )
+  console.log(popoverContent, 'popoverContent')
+  if (popoverContent && popoverContent.length) {
+    // 点击第一个
+    popoverContent[0].click()
+    console.log(popoverContent[0], 'poi点击了')
+  }
+}
+
 // 发布成功后通知后台
 async function publishSuccess() {
   try {
     // 获取任务数据
     const task = parseJSON(localStorage.getItem('task'), {})
-    const { id } = task
-    const api = '/admin/autopublishtask/updateAutoPublishTask'
-    const res = await $Request(api, {
+    const res = await $Request(updateAutoPublishTaskApi, {
       params: {
-        id: id
+        id: task.id
       }
     })
     console.log(res, '发布成功接口---res')
@@ -919,7 +988,6 @@ function simulateMouseMove(x, y) {
 
 // 通用的调用接口方法
 function $Request(url = '', { options = {}, params = {} } = {}) {
-  const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
   const requestURL = baseURL + url
   console.log('接口请求开始')
 
