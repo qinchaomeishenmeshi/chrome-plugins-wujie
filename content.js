@@ -7,6 +7,22 @@
  * 修改任务状态
  * 退出登录
  * */
+function disablePopups() {
+  window.alert = function () {
+    console.log('Alert blocked.')
+  }
+  window.confirm = function () {
+    console.log('Confirm blocked.')
+    return false
+  }
+  window.prompt = function () {
+    console.log('Prompt blocked.')
+    return null
+  }
+}
+
+// 执行重写函数
+disablePopups()
 
 const API = {
   // basicURL
@@ -65,7 +81,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   switch (action) {
     case 'sync': // 同步账号
-      messageCreate('准备开始同步账号')
+      createNotification('准备开始同步账号')
       getTableAll()
       break
     case 'start': // 开始任务
@@ -366,22 +382,26 @@ async function getTableAll() {
       // 打印收集到的数据
       console.log(dataList)
 
-      // 获取最大页码
-      await getMaxPage()
+      if (dataList && dataList.length > 5) {
+        // 获取最大页码
+        await getMaxPage()
 
-      // 递归调用获取下一页数据
-      if (currentPage < maxPage) {
-
-        messageCreate('已获取子账号：' + dataList.length)
-        await nextPage()
-        await getTableAll()
+        // 递归调用获取下一页数据
+        if (currentPage < maxPage) {
+          createNotification('已获取子账号：' + dataList.length)
+          await nextPage()
+          await getTableAll()
+        } else {
+          console.log('所有页面的数据已获取完毕')
+          createNotification('所有页面的数据已获取完毕，准备同步')
+          syncAccount()
+        }
       } else {
-        console.log('所有页面的数据已获取完毕')
-        messageCreate('所有页面的数据已获取完毕，准备同步')
+        // 如果没有5个以上的子账号，直接同步
         syncAccount()
       }
     } else {
-      messageCreate('同步失败，未找到子账号列表')
+      createNotification('同步失败，未找到子账号列表')
       throw new Error('未找到表格的tbody元素')
     }
   } catch (error) {
@@ -398,7 +418,16 @@ async function getTableAll() {
 
 // 同步账号信息
 async function syncAccount() {
-  const params = [...new Set(dataList)]
+  const accountElement = await waitForElement('#sub-app p', { isAll: true })
+  const mainAccountId = accountElement[0].innerText.trim()
+  console.log(mainAccountId, 'mainAccountId')
+  // 去重
+  const params = [...new Set(dataList)].map((item) => {
+    return {
+      mainAccountId,
+      ...item
+    }
+  })
   try {
     // 调用接口传递给后台
     const res = await $Request(API.syncAccountApi, {
@@ -406,7 +435,7 @@ async function syncAccount() {
     })
     localStorage.setItem('dataList', JSON.stringify(params))
     console.log(res, '同步账号接口---res')
-    messageCreate(`同步账号接口请求结束，本次同步账号：${params.length}个`)
+    createNotification(`同步账号接口请求结束，本次同步账号：${params.length}个`)
   } catch (error) {
     $handleError(error)
   }
@@ -449,10 +478,10 @@ async function getTable(task) {
       if (childAccount) {
         // 点击子账号的操作按钮
         childAccount.actions[0].click()
-        messageCreate('准备跳转子账号页面')
+        createNotification('准备跳转子账号页面')
       } else {
         localStorage.setItem('taskStatus', '0')
-        messageCreate('未找到子账号，请检查并重新同步账号')
+        createNotification('未找到子账号，请检查并重新同步账号')
         $handleError('未找到子账号')
         reloadPage()
       }
@@ -558,6 +587,8 @@ function goToPage(page) {
 // 点击管理跳转子账号页面
 async function goToChildPage() {
   const task = getCacheTask()
+
+  const itemsPerPage = 5
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
   console.log(childIndex, 'childIndex')
@@ -567,13 +598,12 @@ async function goToChildPage() {
     return
   }
   // 每页5个元素，计算元素所在的页码
-  const itemsPerPage = 5
-  const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
-
-  console.log(pageIndex, 'pageIndex')
-  // 进入对应页码
-  await goToPage(pageIndex || 1)
-
+  if (childIndex > 5) {
+    const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
+    console.log(pageIndex, 'pageIndex')
+    // 进入对应页码
+    await goToPage(pageIndex || 1)
+  }
   // 获取当前页面的table
   getTable(task)
 }
@@ -582,12 +612,12 @@ async function goToChildPage() {
 
 // 获取要开始的任务
 async function getTask() {
-  messageCreate('获取要开始的任务')
+  createNotification('获取要开始的任务')
   try {
     const res = await $Request(API.getTaskApi)
     if (!res) {
       localStorage.setItem('taskStatus', '0')
-      messageCreate('没有新的任务')
+      createNotification('没有新的任务')
       return
     }
     localStorage.setItem('task', JSON.stringify(res))
@@ -596,7 +626,7 @@ async function getTask() {
     goToChildPage()
   } catch (error) {
     localStorage.setItem('taskStatus', '0')
-    messageCreate('开始任务失败：' + JSON.stringify(error))
+    createNotification('开始任务失败：' + JSON.stringify(error))
     $handleError(error)
   }
 }
@@ -624,7 +654,7 @@ async function toChildUploadPage() {
 
 // 通过接口获取文件路径
 async function uploadVideoFn() {
-  messageCreate('准备上传视频')
+  createNotification('准备上传视频')
   // 获取任务数据
   const task = getCacheTask()
   const { filePath, videoName } = task
@@ -656,7 +686,7 @@ async function uploadVideoFn() {
 
 // 上传后检查是否加载成功
 async function checkUploadVideo() {
-  messageCreate('检查是否加载成功')
+  createNotification('检查是否加载成功')
   try {
     const videoElement = await waitForElement('video')
     if (videoElement) {
@@ -694,13 +724,13 @@ async function publishVideo(_videoElement) {
       if (flag) {
         reloadPage()
       } else {
-        messageCreate('表单自动填写失败')
+        createNotification('表单自动填写失败')
         $handleError('表单自动填写失败')
       }
     } else {
       // 已经填写过表单，进行发布操作
       console.log('表单已自动填写，进行发布操作')
-      messageCreate('表单已自动填写，进行发布操作')
+      createNotification('表单已自动填写，进行发布操作')
       await publishTimePickerSelect()
       console.log('点击发布按钮')
       await delay(DELAY.DOM_DELAY)
@@ -718,14 +748,14 @@ async function publishVideo(_videoElement) {
     }
   } catch (error) {
     console.error('表单自动填写过程中出现错误:', error)
-    messageCreate('表单自动填写过程中出现错误')
+    createNotification('表单自动填写过程中出现错误')
     $handleError(error)
   }
 }
 
 // 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
 async function autoFillForm() {
-  messageCreate('自动填充表单')
+  createNotification('自动填充表单')
   return new Promise(async (resolve, reject) => {
     let flag = false
     try {
@@ -851,7 +881,7 @@ async function publishSuccess() {
       }
     })
     console.log(res, '发布成功接口---res')
-    messageCreate('发出发布成功接口请求，准备退出代运营状态')
+    createNotification('发出发布成功接口请求，准备退出代运营状态')
   } catch (error) {
     $handleError(error)
   }
@@ -931,7 +961,7 @@ async function waitForElement(selector, options = {}) {
     retries++
   }
 
-  messageCreate(`Element not found after ${maxRetries} retries: ${selector}`)
+  createNotification(`Element not found after ${maxRetries} retries: ${selector}`)
   $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
   throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
 }
@@ -1088,7 +1118,7 @@ function getStorageKey() {
       resolve(cachedDataList)
     } else {
       $handleError('getStorageKey:未找到匹配的键')
-      messageCreate('getStorageKey:未找到匹配的键')
+      createNotification('getStorageKey:未找到匹配的键')
       reject('未找到匹配的键')
     }
   })
@@ -1132,12 +1162,6 @@ function parseJSON(jsonString = '', defaultValue = null) {
   }
 }
 
-// 发送通知
-function messageCreate(message) {
-  // 发送消息
-  chrome.runtime.sendMessage({ action: 'fromContent', message })
-}
-
 // // TODO: 暂时用内部的，后续需要改成外部的request.js
 
 // 通用的调用接口方法
@@ -1167,12 +1191,12 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
           resolve(data.data)
         } else {
           $handleError(`接口返回错误: ${data.message}`)
-          messageCreate(`接口返回错误: ${JSON.stringify(data)}`)
+          createNotification(`接口返回错误: ${JSON.stringify(data)}`)
           reject(new Error(`接口返回错误: ${data.message}`))
         }
       })
       .catch((error) => {
-        messageCreate(`Fetch Error:: ${error}`)
+        createNotification(`Fetch Error:: ${error}`)
         reject(error)
       })
   })
@@ -1211,6 +1235,9 @@ async function $handleError(error) {
 }
 
 function createNotification(message) {
+  // 发送系统通知
+  chrome.runtime.sendMessage({ action: 'fromContent', message })
+  // 发送页面进度通知
   // 创建一个容器
   const container = document.createElement('div')
   container.style.position = 'fixed'
@@ -1234,7 +1261,7 @@ function createNotification(message) {
   // 自动移除提示框
   setTimeout(() => {
     container.remove()
-  }, 5000) // 3秒后自动移除
+  }, 3000) // 3秒后自动移除
 }
 
 // 工具函数 - 结束
