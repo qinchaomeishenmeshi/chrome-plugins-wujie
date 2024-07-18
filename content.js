@@ -8,9 +8,7 @@
  * 退出登录
  * */
 
-
-
-// 
+//
 const baseURL = 'https://bj.devwwd.site:449/dev-api/videoclip'
 // 获取任务task的api
 const getTaskApi = '/admin/autopublishtask/getNoPublicData'
@@ -18,6 +16,8 @@ const getTaskApi = '/admin/autopublishtask/getNoPublicData'
 const syncAccountApi = '/admin/juzhensubaccount/accountManage'
 // 发布成功的api
 const updateAutoPublishTaskApi = '/admin/autopublishtask/updateAutoPublishTask'
+//
+const failedApi = '/admin/autopublishtask/failAutoPublishTask'
 
 // DOM 操作延迟时间
 const DOM_DELAY = 2000
@@ -34,12 +34,8 @@ const childUploadPage = 'https://creator.douyin.com/content/'
 // 子账号发布页面
 const childPublishPage = 'https://creator.douyin.com/content/publish?enter_from=publish_page'
 
-
-
 // 页面加载完成后执行监听
 watchPage()
-
-
 
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
@@ -62,6 +58,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 
   switch (action) {
     case 'sync': // 同步账号
+      messageCreate('准备开始同步账号')
       getTableAll()
       break
     case 'start': // 开始任务
@@ -82,7 +79,6 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
       break
   }
 })
-
 
 // 页面加载完成后执行监听
 async function watchPage() {
@@ -129,8 +125,6 @@ async function watchPage() {
       break
   }
 }
-
-
 
 async function publishTimePickerSelect(_dateTime) {
   const task = parseJSON(localStorage.getItem('task'), {})
@@ -319,18 +313,17 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
               .then(resolve)
               .catch(reject)
           } else {
-            const error = new Error('Exceeded maximum retries')
-            console.error('simulateWheelEvent error:', error)
-            reject(error)
+            console.error('simulateWheelEvent error: Exceeded maximum retries')
+            reject('simulateWheelEvent error: Exceeded maximum retries')
           }
         }
       }
 
       // 开始检查滚动位置
-      setTimeout(checkPosition, 500)
+      setTimeout(checkPosition, 1000)
     } catch (error) {
       console.error('模拟鼠标滚轮事件的函数error:', error)
-      reject(error)
+      reject('模拟鼠标滚轮事件的函数error')
     }
   })
 }
@@ -383,8 +376,9 @@ async function syncAccount() {
     const res = await $Request(syncAccountApi, {
       params
     })
-    localStorage.setItem('dataList', JSON.stringify(dataList))
+    localStorage.setItem('dataList', JSON.stringify(params))
     console.log(res, '同步账号接口---res')
+    messageCreate(`同步账号接口请求结束，本次同步账号：${params.length}个`)
   } catch (error) {
     $handleError(error)
   }
@@ -430,6 +424,8 @@ async function getTableAll() {
         await getTableAll()
       } else {
         console.log('所有页面的数据已获取完毕')
+
+        messageCreate('所有页面的数据已获取完毕，准备同步')
         syncAccount()
       }
     } else {
@@ -485,6 +481,8 @@ async function getTable(task) {
       if (childAccount) {
         // 点击子账号的操作按钮
         childAccount.actions[0].click()
+
+        messageCreate('准备跳转子账号页面')
       } else {
         messageCreate('未找到子账号，请检查并重新同步账号')
         $handleError('未找到子账号')
@@ -614,6 +612,7 @@ async function goToChildPage() {
 
 // 获取要开始的任务
 async function getTask() {
+  messageCreate('获取要开始的任务')
   try {
     const res = await $Request(getTaskApi)
     if (!res) {
@@ -647,10 +646,10 @@ async function toChildUploadPage() {
 
 // 通过接口获取文件路径
 async function uploadVideoFn() {
+  messageCreate('准备上传视频')
   // 获取任务数据
   const task = parseJSON(localStorage.getItem('task'), {})
   const { filePath, videoName } = task
-
   try {
     const file = await urlToFile(filePath, videoName)
     // 获取上传按钮，并将file上传
@@ -679,6 +678,7 @@ async function uploadVideoFn() {
 
 // 上传后检查是否加载成功
 async function checkUploadVideo() {
+  messageCreate('检查是否加载成功')
   try {
     const videoElement = await waitForElement('video')
     if (videoElement) {
@@ -716,21 +716,22 @@ async function publishVideo(_videoElement) {
       if (flag) {
         reloadPage()
       } else {
+        messageCreate('表单自动填写失败')
         $handleError('表单自动填写失败')
       }
     } else {
       // 已经填写过表单，进行发布操作
       console.log('表单已自动填写，进行发布操作')
+      messageCreate('表单已自动填写，进行发布操作')
       await publishTimePickerSelect()
       console.log('点击发布按钮')
-      await delay(DOM_DELAY)
-      await publishSuccess()
       await delay(DOM_DELAY)
       const publishButtons = await waitForElement('button', { isAll: true })
       // 遍历按钮，查找内容为 "发布" 的按钮
       for (const button of publishButtons) {
         if (button.textContent.trim() === '发布') {
           button.click()
+          await publishSuccess()
           await delay(PAGE_DELAY)
           // 退出代运营状态
           window.location.href = childContentPage
@@ -739,12 +740,14 @@ async function publishVideo(_videoElement) {
     }
   } catch (error) {
     console.error('表单自动填写过程中出现错误:', error)
+    messageCreate('表单自动填写过程中出现错误')
     $handleError(error)
   }
 }
 
 // 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
 async function autoFillForm() {
+  messageCreate('自动填充表单')
   return new Promise(async (resolve, reject) => {
     let flag = false
     try {
@@ -822,6 +825,8 @@ async function topicOperation(txt) {
       console.log(parent, 'span---话题点击了')
       parent.click()
     }
+  } else {
+    $handleError('没有找到----topicOperation')
   }
 }
 
@@ -852,6 +857,8 @@ async function poiOperation(txt) {
     // 点击第一个
     popoverContent[0].click()
     console.log(popoverContent[0], 'poi点击了')
+  } else {
+    $handleError('没有找到----poiOperation')
   }
 }
 
@@ -866,6 +873,7 @@ async function publishSuccess() {
       }
     })
     console.log(res, '发布成功接口---res')
+    messageCreate('发出发布成功接口请求，准备退出代运营状态')
   } catch (error) {
     $handleError(error)
   }
@@ -1029,20 +1037,28 @@ function $Request(url = '', { options = {}, params = {} } = {}) {
 // 错误处理函数，将错误信息存储在 localStorage 中
 async function $handleError(error) {
   console.log('发生错误:', error)
+
+  // 获取当前任务和错误日志
   const task = parseJSON(localStorage.getItem('task'), {})
   const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
+
+  // 创建新的错误日志
   const errorLog = {
     message: error.message || error,
     stack: error.stack,
-    time: new Date().toISOString()
+    time: new Date().toLocaleString()
   }
+
+  // 将新的错误日志添加到错误日志数组中
   errorLogs.push(errorLog)
+
+  // 更新本地存储中的错误日志
   localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
-  const api = '/admin/autopublishtask/updateAutoPublishTask'
-  await $Request(api, {
+
+  // 发送请求，报告任务失败
+  await $Request(failedApi, {
     params: {
-      id: task.id,
-      msg: task.id + ':' + error.message || error + '_____' + new Date().toISOString()
+      failedReason: task.id + ':' + (error.message || error) + '_____' + new Date().toLocaleString()
     }
   })
 }
