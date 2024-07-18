@@ -9,7 +9,8 @@
  * */
 
 // basicURL
-const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
+// const BaseUrl = 'https://bj.devwwd.site:449/dev-api/videoclip'
+const BaseUrl = 'https://wujie.top/chromePath/dev-api/videoclip'
 // 获取任务task的api
 const getTaskApi = '/admin/autopublishtask/getNoPublicData'
 // 同步账号的api
@@ -1097,6 +1098,16 @@ async function reloadPage(timeout = PAGE_DELAY) {
 
 // 解析JSON
 function parseJSON(jsonString = '', defaultValue = null) {
+  // 不可为空，null,undefined
+  if (
+    !jsonString ||
+    jsonString === null ||
+    jsonString === undefined ||
+    jsonString === 'null' ||
+    jsonString === 'undefined'
+  ) {
+    return defaultValue
+  }
   try {
     return JSON.parse(jsonString)
   } catch (error) {
@@ -1144,7 +1155,6 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
         }
       })
       .catch((error) => {
-        $handleError(`Fetch Error:: ${error}`)
         messageCreate(`Fetch Error:: ${error}`)
         reject(error)
       })
@@ -1159,6 +1169,7 @@ async function $handleError(error) {
   const task = parseJSON(localStorage.getItem('task'), {})
   const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
 
+  console.log(errorLogs, 'errorLogs')
   // 创建新的错误日志
   const errorLog = {
     message: error.message || error,
@@ -1177,6 +1188,8 @@ async function $handleError(error) {
     params: {
       failedReason: task.id + ':' + (error.message || error) + '_____' + new Date().toLocaleString()
     }
+  }).catch((error) => {
+    throw new Error('Failed to report error: ' + error)
   })
 }
 

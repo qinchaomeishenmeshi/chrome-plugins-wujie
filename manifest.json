@@ -16,13 +16,16 @@
     "notifications"
   ],
   "host_permissions": [
-    "http://*/*",
-    "https://*/*"
+    "https://*.douyin.com/*",
+    "https://wujie.top/*",
+    "https://*.devwwd.site:449/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://*.douyin.com/*"
+        "https://*.douyin.com/*",
+        "https://wujie.top/*",
+        "https://*.devwwd.site:449/*"
       ],
       "js": [
         "content.js"
