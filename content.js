@@ -371,6 +371,8 @@ async function getTableAll() {
 
       // 递归调用获取下一页数据
       if (currentPage < maxPage) {
+
+        messageCreate('已获取子账号：' + dataList.length)
         await nextPage()
         await getTableAll()
       } else {
