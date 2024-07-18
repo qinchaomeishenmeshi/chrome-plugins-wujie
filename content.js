@@ -40,9 +40,9 @@ watchPage()
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
-    '收到来自 ' +
-      (sender.tab ? 'content-script(' + sender.tab.url + ')' : 'popup或者background') +
-      ' 的消息：',
+    `收到来自 ${
+      sender.tab ? 'content-script(' + sender.tab.url + ')' : 'popup或者background'
+    } 的消息：`,
     request
   )
 
@@ -85,17 +85,18 @@ async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
 
-  // poiOperation('佳兆业·金域天下三期')
-  // return
-
+  // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
 
+  //
   if (taskStatus !== '1') {
     console.log('任务状态不为1，不执行操作')
     return
   }
+
+  // 分页面进行操作
   switch (window.location.href) {
-    case creatorHomePage: // 机构号首页
+    case creatorHomePage: // 机构号首页-获取任务
       getTask()
       break
     case childCreatorHomePage: // 子账号首页
@@ -111,14 +112,14 @@ async function watchPage() {
       uploadVideoFn()
       break
 
-    case childContentPage: // 子账号内容管理页面
-      // 退出代运营状态
-      childLogout()
-      break
-
     case childPublishPage: // 子账号发布页面
       // 点击发布按钮
       publishVideo()
+      break
+
+    case childContentPage: // 子账号内容管理页面
+      // 退出代运营状态
+      childLogout()
       break
 
     default:
@@ -126,6 +127,8 @@ async function watchPage() {
   }
 }
 
+// 时间选择框操作 - 开始
+// 时间选择
 async function publishTimePickerSelect(_dateTime) {
   const task = parseJSON(localStorage.getItem('task'), {})
   const t = _dateTime || task.sendTime
@@ -282,53 +285,9 @@ async function selectTime(hour, minute) {
   await simulateWheelEvent(minuteList, minute)
 }
 
-// 滚动到目标位置
-async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) {
-  return new Promise((resolve, reject) => {
-    const targetLi = Array.from(list).find((li) => li.textContent.trim().includes(target))
+// 时间选择框操作 - 结束
 
-    if (!targetLi) {
-      const error = new Error('未找到目标元素')
-      console.error('simulateWheelEvent error:', error)
-      reject(error)
-      return
-    }
-
-    try {
-      console.log(target, 'target')
-      // 使用 scrollIntoView 方法滚动到目标元素
-      targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-      // 定义一个轮询检查函数
-      const checkPosition = () => {
-        const rect = targetLi.getBoundingClientRect()
-        const isAtPosition = rect.top >= 0 && rect.bottom <= window.innerHeight
-
-        if (isAtPosition) {
-          resolve()
-        } else {
-          if (retryCount < maxRetries) {
-            console.log(`Retrying... (${retryCount + 1}/${maxRetries})`)
-            simulateWheelEvent(list, target, retryCount + 1, maxRetries)
-              .then(resolve)
-              .catch(reject)
-          } else {
-            console.error('simulateWheelEvent error: Exceeded maximum retries')
-            reject('simulateWheelEvent error: Exceeded maximum retries')
-          }
-        }
-      }
-
-      // 开始检查滚动位置
-      setTimeout(checkPosition, 1000)
-    } catch (error) {
-      console.error('模拟鼠标滚轮事件的函数error:', error)
-      reject('模拟鼠标滚轮事件的函数error')
-    }
-  })
-}
-
-// 重新加载table
+// 保持登陆使用---重新加载table
 async function reloadTable() {
   try {
     // 获取最大页码
@@ -355,6 +314,8 @@ async function reloadTable() {
   }
 }
 
+// 机构号-子账号列表操作-开始
+
 // 账号列表
 const accountList = []
 // 创建一个空数组来保存收集到的数据
@@ -368,23 +329,7 @@ let retryCount = 0
 // 最大重试次数
 const maxRetryCount = 5
 
-// 同步账号信息
-async function syncAccount() {
-  const params = [...new Set(dataList)]
-  try {
-    // 调用接口传递给后台
-    const res = await $Request(syncAccountApi, {
-      params
-    })
-    localStorage.setItem('dataList', JSON.stringify(params))
-    console.log(res, '同步账号接口---res')
-    messageCreate(`同步账号接口请求结束，本次同步账号：${params.length}个`)
-  } catch (error) {
-    $handleError(error)
-  }
-}
-
-// 获取当前页面的表格数据
+// 获取所有账号列表数据
 async function getTableAll() {
   try {
     // 获取表格的tbody元素
@@ -411,7 +356,6 @@ async function getTableAll() {
         dataList.push(rowData)
       })
 
-      // /admin/juzhensubaccount/accountManage
       // 打印收集到的数据
       console.log(dataList)
 
@@ -424,27 +368,42 @@ async function getTableAll() {
         await getTableAll()
       } else {
         console.log('所有页面的数据已获取完毕')
-
         messageCreate('所有页面的数据已获取完毕，准备同步')
         syncAccount()
       }
     } else {
+      messageCreate('同步失败，未找到子账号列表')
       throw new Error('未找到表格的tbody元素')
     }
   } catch (error) {
-    $handleError(error)
-    // 重新获取table
-    await delay(DOM_DELAY)
     retryCount++
-
+    // 重新获取table
     if (retryCount < maxRetryCount) {
       await getTableAll()
     } else {
       console.error('重试次数已达上限')
+      $handleError(error)
     }
   }
 }
 
+// 同步账号信息
+async function syncAccount() {
+  const params = [...new Set(dataList)]
+  try {
+    // 调用接口传递给后台
+    const res = await $Request(syncAccountApi, {
+      params
+    })
+    localStorage.setItem('dataList', JSON.stringify(params))
+    console.log(res, '同步账号接口---res')
+    messageCreate(`同步账号接口请求结束，本次同步账号：${params.length}个`)
+  } catch (error) {
+    $handleError(error)
+  }
+}
+
+// 获取子账号具体位置
 async function getTable(task) {
   accountList.length = 0
   try {
@@ -481,30 +440,28 @@ async function getTable(task) {
       if (childAccount) {
         // 点击子账号的操作按钮
         childAccount.actions[0].click()
-
         messageCreate('准备跳转子账号页面')
       } else {
+        localStorage.setItem('taskStatus', '0')
         messageCreate('未找到子账号，请检查并重新同步账号')
         $handleError('未找到子账号')
-        localStorage.setItem('taskStatus', '0')
         reloadPage()
       }
     }
   } catch (error) {
-    $handleError(error)
-    // 重新获取table
-    await delay(DOM_DELAY)
     retryCount++
-
+    // 重新获取table
     if (retryCount < maxRetryCount) {
-      getTable()
+      await getTable()
+    } else {
+      console.error('重试次数已达上限')
+      $handleError(error)
     }
   }
 }
 
 // 获取最大页码数
 async function getMaxPage() {
-  // 获取分页器的元素
   // 获取分页器的元素
   const pageDiv = await waitForElement(
     '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
@@ -518,7 +475,7 @@ async function getMaxPage() {
     console.log('currentPage', currentPage)
     console.log('maxPage', maxPage)
   } else {
-    $handleError('未找到目标div元素')
+    $handleError('获取最大页码数失败')
   }
 }
 
@@ -587,6 +544,8 @@ function goToPage(page) {
   })
 }
 
+// 机构号-子账号列表操作-结束
+
 // 点击管理跳转子账号页面
 async function goToChildPage() {
   const task = parseJSON(localStorage.getItem('task'), {})
@@ -610,6 +569,7 @@ async function goToChildPage() {
   getTable(task)
 }
 
+// 自动化任务执行-开始
 // 获取要开始的任务
 async function getTask() {
   messageCreate('获取要开始的任务')
@@ -879,6 +839,9 @@ async function publishSuccess() {
   }
 }
 
+// 自动化任务执行-结束
+
+// 退出代运营状态-开始
 // 退出登录
 async function childLogout() {
   try {
@@ -910,7 +873,9 @@ async function childLogout() {
   }
 }
 
-// 工具函数
+// 退出代运营状态-结束
+
+// 工具函数 - 开始
 
 // 元素查找函数
 async function waitForElement(selector, options = {}) {
@@ -948,6 +913,8 @@ async function waitForElement(selector, options = {}) {
     retries++
   }
 
+  messageCreate(`Element not found after ${maxRetries} retries: ${selector}`)
+  $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
   throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
 }
 
@@ -999,6 +966,148 @@ function simulateMouseMove(x, y) {
     console.error('No element found at the specified coordinates:', x, y)
     $handleError('No element found at the specified coordinates')
   }
+}
+
+// 滚动到目标位置
+async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) {
+  return new Promise((resolve, reject) => {
+    const targetLi = Array.from(list).find((li) => li.textContent.trim().includes(target))
+
+    if (!targetLi) {
+      console.error('simulateWheelEvent error: 未找到目标元素')
+      $handleError('simulateWheelEvent error: 未找到目标元素')
+      reject('simulateWheelEvent error: 未找到目标元素')
+      return
+    }
+
+    try {
+      console.log(target, 'target')
+      // 使用 scrollIntoView 方法滚动到目标元素
+      targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
+
+      // 定义一个轮询检查函数
+      const checkPosition = () => {
+        const rect = targetLi.getBoundingClientRect()
+        const isAtPosition = rect.top >= 0 && rect.bottom <= window.innerHeight
+
+        if (isAtPosition) {
+          resolve()
+        } else {
+          if (retryCount < maxRetries) {
+            console.log(`Retrying... (${retryCount + 1}/${maxRetries})`)
+            simulateWheelEvent(list, target, retryCount + 1, maxRetries)
+              .then(resolve)
+              .catch(reject)
+          } else {
+            console.error('simulateWheelEvent error: Exceeded maximum retries')
+            reject('simulateWheelEvent error: Exceeded maximum retries')
+          }
+        }
+      }
+
+      // 开始检查滚动位置
+      setTimeout(checkPosition, 1000)
+    } catch (error) {
+      console.error('模拟鼠标滚轮事件的函数error:', error)
+      reject('模拟鼠标滚轮事件的函数error')
+    }
+  })
+}
+
+// 清除缓存数据
+function removeStorageKey() {
+  return new Promise((resolve, reject) => {
+    // 定义要查找的前缀
+    const prefix = 'publish_form_cache:'
+    // 遍历 localStorage 中的所有键
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+
+      // 检查键是否以指定前缀开头
+      if (key.includes(prefix)) {
+        console.log('key----' + key)
+        // 获取该键的值
+        const cachedData = localStorage.getItem(key)
+        // 检查键是否存在
+        if (cachedData) {
+          // 删除指定的键
+          localStorage.removeItem(cachedData)
+          resolve('已删除指定的键')
+        } else {
+          $handleError('removeStorageKey:未找到匹配的键')
+          reject('未找到匹配的键')
+        }
+      }
+    }
+  })
+}
+
+// 获取缓存数据
+function getStorageKey() {
+  return new Promise((resolve, reject) => {
+    // 定义要查找的前缀
+    const prefix = 'publish_form_cache:'
+    const cachedDataList = []
+
+    // 遍历 localStorage 中的所有键
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+
+      // 检查键是否以指定前缀开头
+      if (key.includes(prefix)) {
+        console.log('key----' + key)
+
+        // 获取该键的值
+        const cachedData = localStorage.getItem(key)
+        console.log('找到的数据:', parseJSON(cachedData, []))
+        // 将数据添加到结果列表中
+        cachedDataList.push(key)
+      }
+    }
+
+    // 检查是否找到了匹配的数据
+    if (cachedDataList.length > 0) {
+      resolve(cachedDataList)
+    } else {
+      $handleError('getStorageKey:未找到匹配的键')
+      messageCreate('getStorageKey:未找到匹配的键')
+      reject('未找到匹配的键')
+    }
+  })
+}
+
+// 等待页面加载完成
+function waitForPageLoad() {
+  return new Promise((resolve) => {
+    if (document.readyState === 'complete') {
+      resolve()
+    } else {
+      window.addEventListener('load', () => {
+        resolve()
+      })
+    }
+  })
+}
+
+// 重新加载页面
+async function reloadPage(timeout = PAGE_DELAY) {
+  await delay(timeout)
+  window.location.reload()
+}
+
+// 解析JSON
+function parseJSON(jsonString = '', defaultValue = null) {
+  try {
+    return JSON.parse(jsonString)
+  } catch (error) {
+    return defaultValue
+  }
+}
+
+// 发送通知
+function messageCreate(message) {
+  // 发送消息
+  chrome.runtime.sendMessage({ action: 'fromContent', message })
 }
 
 // // TODO: 暂时用内部的，后续需要改成外部的request.js
@@ -1063,95 +1172,4 @@ async function $handleError(error) {
   })
 }
 
-// 清除缓存数据
-function removeStorageKey() {
-  return new Promise((resolve, reject) => {
-    // 定义要查找的前缀
-    const prefix = 'publish_form_cache:'
-    // 遍历 localStorage 中的所有键
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-
-      // 检查键是否以指定前缀开头
-      if (key.includes(prefix)) {
-        console.log('key----' + key)
-        // 获取该键的值
-        const cachedData = localStorage.getItem(key)
-        // 检查键是否存在
-        if (cachedData) {
-          // 删除指定的键
-          localStorage.removeItem(cachedData)
-          resolve('已删除指定的键')
-        } else {
-          reject(new Error('未找到指定的键'))
-        }
-      }
-    }
-  })
-}
-
-// 获取缓存数据
-function getStorageKey() {
-  return new Promise((resolve, reject) => {
-    // 定义要查找的前缀
-    const prefix = 'publish_form_cache:'
-    const cachedDataList = []
-
-    // 遍历 localStorage 中的所有键
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-
-      // 检查键是否以指定前缀开头
-      if (key.includes(prefix)) {
-        console.log('key----' + key)
-
-        // 获取该键的值
-        const cachedData = localStorage.getItem(key)
-        console.log('找到的数据:', parseJSON(cachedData, []))
-        // 将数据添加到结果列表中
-        cachedDataList.push(key)
-      }
-    }
-
-    // 检查是否找到了匹配的数据
-    if (cachedDataList.length > 0) {
-      resolve(cachedDataList)
-    } else {
-      reject(new Error('未找到匹配的键'))
-    }
-  })
-}
-
-// 等待页面加载完成
-function waitForPageLoad() {
-  return new Promise((resolve) => {
-    if (document.readyState === 'complete') {
-      resolve()
-    } else {
-      window.addEventListener('load', () => {
-        resolve()
-      })
-    }
-  })
-}
-
-// 重新加载页面
-async function reloadPage(timeout = PAGE_DELAY) {
-  await delay(timeout)
-  window.location.reload()
-}
-
-// 解析JSON
-function parseJSON(jsonString = '', defaultValue = null) {
-  try {
-    return JSON.parse(jsonString)
-  } catch (error) {
-    return defaultValue
-  }
-}
-
-// 发送通知
-function messageCreate(message) {
-  // 发送消息
-  chrome.runtime.sendMessage({ action: 'fromContent', message })
-}
+// 工具函数 - 结束
