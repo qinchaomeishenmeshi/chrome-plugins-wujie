@@ -49,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, callback) => {
           // 放入缓存
           chrome.storage.local.set({ douyinTabId: tab.id })
           // 激活tab
-          // chrome.tabs.update(tab.id, { active: true })
+          chrome.tabs.update(tab.id, { active: true })
           await injectContentScript(douyinTabId)
           // 1s后向content-script发送消息
           sendMessageToContentScript(
@@ -60,6 +60,7 @@ chrome.runtime.onMessage.addListener((message, callback) => {
         }
       })
       if (!isExist) {
+        messageCreate('不存在抖音创作页签，即将打开')
         chrome.tabs.create({ url: douyinHomePage })
       }
     })

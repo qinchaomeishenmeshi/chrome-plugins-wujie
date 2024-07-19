@@ -57,7 +57,7 @@ const PAGE = {
   // 子账号发布页面
   childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page',
   // 测试页面
-  testPage: 'http://localhost'
+  systemPage: 'https://bj.devwwd.site'
 }
 
 // 页面加载完成后执行监听
@@ -113,18 +113,14 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
-  // // 获取chrome缓存的tabId
-  // const DouyinTabId = await getDouyinTabId()
-  // console.log(DouyinTabId, 'DouyinTabId')
+
   // 测试页面
-  if (window.location.href.includes(PAGE.testPage)) {
+  if (window.location.href.includes(PAGE.systemPage)) {
     const pushBtn = await waitForElement('#pushTaskBtn')
     console.log(pushBtn, 'pushBtn')
     // 如果pushBtn存在，则添加事件监听
     if (pushBtn) {
       pushBtn.addEventListener('click', async () => {
-        createNotification('推送按钮点击了')
-        // 发送消息给background.js处理
         // 发送系统通知
         chrome.runtime.sendMessage({ action: 'pushTask' })
       })
@@ -186,6 +182,7 @@ async function getDouyinTabId() {
 async function pushTask() {
   console.log('混剪点击了。pushTask')
   createNotification('收到推送任务准备开始')
+  localStorage.setItem('taskStatus', '1')
   getTask()
 }
 
@@ -455,12 +452,16 @@ async function getTableAll() {
   }
 }
 
-// 同步账号信息
-async function syncAccount() {
+// 获取机构号
+async function getMainAccountId() {
   const accountElement = await waitForElement('#sub-app p', { isAll: true })
   const mainAccountId = accountElement[0].innerText.trim()
-  sessionStorage.setItem('mainAccountId', mainAccountId)
-  console.log(mainAccountId, 'mainAccountId')
+  return mainAccountId
+}
+
+// 同步账号信息
+async function syncAccount() {
+  const mainAccountId = await getMainAccountId()
   // 去重
   const params = [...new Set(dataList)].map((item) => {
     return {
@@ -653,18 +654,15 @@ async function goToChildPage() {
 // 获取要开始的任务
 async function getTask() {
   try {
-    const mainAccountId = sessionStorage.getItem('mainAccountId')
+    const mainAccountId = await getMainAccountId()
+    console.log(mainAccountId, 'mainAccountId')
     if (!mainAccountId || mainAccountId === null || mainAccountId === 'null') {
       createNotification('机构号错误，请先重新同步账号')
       return
     }
 
     createNotification(mainAccountId + '：准备获取要开始的任务')
-    const res = await $Request(API.getTaskApi + '?mainAccountId=' + mainAccountId, {
-      // params: {
-      // mainAccountId
-      // }
-    })
+    const res = await $Request(API.getTaskApi + '?mainAccountId=' + mainAccountId, {})
     if (!res) {
       localStorage.setItem('taskStatus', '0')
       createNotification('没有新的任务')
@@ -1068,7 +1066,7 @@ function simulateMouseMove(x, y) {
 
 // 滚动到目标位置
 async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const targetLi = Array.from(list).find((li) => li.textContent.trim().includes(target))
 
     if (!targetLi) {
@@ -1082,8 +1080,10 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
       console.log(target, 'target')
       // 使用 scrollIntoView 方法滚动到目标元素
       targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await delay(DELAY.DOM_DELAY)
+      resolve()
 
-      // 定义一个轮询检查函数
+      定义一个轮询检查函数
       const checkPosition = () => {
         const rect = targetLi.getBoundingClientRect()
         const isAtPosition = rect.top >= 0 && rect.bottom <= window.innerHeight
@@ -1098,7 +1098,7 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
               .catch(reject)
           } else {
             console.error('simulateWheelEvent error: Exceeded maximum retries')
-            reject('simulateWheelEvent error: Exceeded maximum retries')
+            resolve()
           }
         }
       }
