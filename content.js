@@ -137,11 +137,13 @@ async function watchPage() {
   }
 
   // 分页面进行操作
+  console.log('当前页面：', window.location.href)
   switch (window.location.href) {
     case PAGE.creatorHomePage: // 机构号首页-获取任务
       getTask()
       break
     case PAGE.childCreatorHomePage: // 子账号首页
+      createNotification('进入子账号')
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
@@ -164,7 +166,7 @@ async function watchPage() {
       childLogout()
       break
 
-    default:
+    default: // 其他页面
       break
   }
 }
@@ -418,7 +420,7 @@ async function getTableAll() {
       // 打印收集到的数据
       console.log(dataList)
 
-      if (dataList && dataList.length > 5) {
+      if (dataList && dataList.length >= 5) {
         // 获取最大页码
         await getMaxPage()
 
@@ -694,9 +696,13 @@ async function toChildUploadPage() {
     if (navListItems && navListItems.length) {
       navListItems[1].click()
       console.log('子页面上导航栏 clicked')
+    } else {
+      $handleError('未找到子页面上导航栏')
+      reloadPage()
     }
   } catch (error) {
     $handleError(error)
+    reloadPage()
   }
 }
 

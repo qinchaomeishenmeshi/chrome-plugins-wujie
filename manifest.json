@@ -13,7 +13,8 @@
     "storage",
     "webRequest",
     "contentSettings",
-    "notifications"
+    "notifications",
+    "<all_urls>"
   ],
   "host_permissions": [
     "https://*.douyin.com/*",
