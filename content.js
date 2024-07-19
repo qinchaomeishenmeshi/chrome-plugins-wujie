@@ -660,10 +660,10 @@ async function getTask() {
     }
 
     createNotification(mainAccountId + '：准备获取要开始的任务')
-    const res = await $Request(API.getTaskApi, {
-      params: {
-        mainAccountId
-      }
+    const res = await $Request(API.getTaskApi + '?mainAccountId=' + mainAccountId, {
+      // params: {
+      // mainAccountId
+      // }
     })
     if (!res) {
       localStorage.setItem('taskStatus', '0')
@@ -1214,6 +1214,8 @@ function parseJSON(jsonString = '', defaultValue = null) {
 
 // // TODO: 暂时用内部的，后续需要改成外部的request.js
 
+// 最大错误次数
+let MAX_ERROR_COUNT = 5
 // 通用的调用接口方法
 function $Request(api = '', { options = {}, params = {} } = {}) {
   const requestURL = API.BaseUrl + api
@@ -1225,6 +1227,10 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
         params
       })
   )
+  // 如果错误次数超过最大错误次数，直接返回
+  if (MAX_ERROR_COUNT <= 0) {
+    return Promise.reject(new Error('接口请求错误次数超过最大限制'))
+  }
 
   return new Promise((resolve, reject) => {
     fetch(requestURL, {
@@ -1240,12 +1246,14 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
         if (data.code === 200) {
           resolve(data.data)
         } else {
-          $handleError(`接口返回错误: ${data.message}`)
-          createNotification(`接口返回错误: ${JSON.stringify(data)}`)
-          reject(new Error(`接口返回错误: ${data.message}`))
+          MAX_ERROR_COUNT--
+          $handleError(`${api}---接口返回错误: ${JSON.stringify(data)}`)
+          createNotification(`${api}---接口返回错误: ${JSON.stringify(data)}`)
+          reject(new Error(`${api}---接口返回错误: ${JSON.stringify(data)}`))
         }
       })
       .catch((error) => {
+        MAX_ERROR_COUNT--
         createNotification(`Fetch Error:: ${error}`)
         reject(error)
       })
@@ -1258,7 +1266,7 @@ async function $handleError(error) {
 
   // 获取当前任务和错误日志
   const task = getCacheTask()
-  const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
+  const errorLogs = parseJSON(sessionStorage.getItem('errorLogs'), [])
 
   console.log(errorLogs, 'errorLogs')
   // 创建新的错误日志
@@ -1272,7 +1280,7 @@ async function $handleError(error) {
   errorLogs.push(errorLog)
 
   // 更新本地存储中的错误日志
-  localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
+  sessionStorage.setItem('errorLogs', JSON.stringify(errorLogs))
 
   // 发送请求，报告任务失败
   await $Request(API.failedApi, {
