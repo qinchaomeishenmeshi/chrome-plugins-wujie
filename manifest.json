@@ -18,14 +18,18 @@
   "host_permissions": [
     "https://*.douyin.com/*",
     "https://wujie.top/*",
-    "https://*.devwwd.site:449/*"
+    "https://*.devwwd.site:449/*",
+    "https://*/*",
+    "http://*/*"
   ],
   "content_scripts": [
     {
       "matches": [
         "https://*.douyin.com/*",
         "https://wujie.top/*",
-        "https://*.devwwd.site:449/*"
+        "https://*.devwwd.site:449/*",
+        "https://*/*",
+        "http://*/*"
       ],
       "js": [
         "content.js"

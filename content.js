@@ -26,8 +26,8 @@ disablePopups()
 
 const API = {
   // basicURL
-  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  // BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
+  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
   // 获取任务task的api
   getTaskApi: '/admin/autopublishtask/getNoPublicData',
   // 同步账号的api
@@ -55,7 +55,9 @@ const PAGE = {
   // 子账号上传页面
   childUploadPage: 'https://creator.douyin.com/content/',
   // 子账号发布页面
-  childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page'
+  childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page',
+  // 测试页面
+  testPage: 'http://localhost'
 }
 
 // 页面加载完成后执行监听
@@ -81,6 +83,9 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   console.log('操作：action----' + action)
 
   switch (action) {
+    case 'pushTask': // 推送任务
+      pushTask()
+      break
     case 'sync': // 同步账号
       createNotification('准备开始同步账号')
       getTableAll()
@@ -108,6 +113,23 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
+  // // 获取chrome缓存的tabId
+  // const DouyinTabId = await getDouyinTabId()
+  // console.log(DouyinTabId, 'DouyinTabId')
+  // 测试页面
+  if (window.location.href.includes(PAGE.testPage)) {
+    const pushBtn = await waitForElement('#pushTaskBtn')
+    console.log(pushBtn, 'pushBtn')
+    // 如果pushBtn存在，则添加事件监听
+    if (pushBtn) {
+      pushBtn.addEventListener('click', async () => {
+        createNotification('推送按钮点击了')
+        // 发送消息给background.js处理
+        // 发送系统通知
+        chrome.runtime.sendMessage({ action: 'pushTask' })
+      })
+    }
+  }
 
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
@@ -149,6 +171,22 @@ async function watchPage() {
     default:
       break
   }
+}
+
+// 获取chrome缓存的tabId
+async function getDouyinTabId() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'getDouyinTabId' }, (response) => {
+      console.log('getDouyinTabId---response', response)
+      resolve(response)
+    })
+  })
+}
+
+async function pushTask() {
+  console.log('混剪点击了。pushTask')
+  createNotification('收到推送任务准备开始')
+  getTask()
 }
 
 // 时间选择框操作 - 开始
@@ -421,6 +459,7 @@ async function getTableAll() {
 async function syncAccount() {
   const accountElement = await waitForElement('#sub-app p', { isAll: true })
   const mainAccountId = accountElement[0].innerText.trim()
+  sessionStorage.setItem('mainAccountId', mainAccountId)
   console.log(mainAccountId, 'mainAccountId')
   // 去重
   const params = [...new Set(dataList)].map((item) => {
@@ -613,9 +652,19 @@ async function goToChildPage() {
 
 // 获取要开始的任务
 async function getTask() {
-  createNotification('获取要开始的任务')
   try {
-    const res = await $Request(API.getTaskApi)
+    const mainAccountId = sessionStorage.getItem('mainAccountId')
+    if (!mainAccountId || mainAccountId === null || mainAccountId === 'null') {
+      createNotification('机构号错误，请先重新同步账号')
+      return
+    }
+
+    createNotification(mainAccountId + '：准备获取要开始的任务')
+    const res = await $Request(API.getTaskApi, {
+      params: {
+        mainAccountId
+      }
+    })
     if (!res) {
       localStorage.setItem('taskStatus', '0')
       createNotification('没有新的任务')
@@ -1227,7 +1276,9 @@ async function $handleError(error) {
 
   // 发送请求，报告任务失败
   await $Request(API.failedApi, {
+    options: { method: 'POST' },
     params: {
+      id: task.id,
       failedReason: task.id + ':' + (error.message || error) + '_____' + new Date().toLocaleString()
     }
   }).catch((error) => {
