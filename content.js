@@ -114,6 +114,10 @@ async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
 
+  if (testFn && creatorHomePage) {
+    testFn()
+  }
+
   // 测试页面
   if (window.location.href.includes(PAGE.systemPage)) {
     const pushBtn = await waitForElement('#pushTaskBtn')
@@ -377,6 +381,30 @@ async function reloadTable() {
 
 // 机构号-子账号列表操作-开始
 
+async function testFn() {
+  // 找到搜索子账号输入框
+  const searchInput = await waitForElement(
+    '.douyin-creator-pc-tabs-content.douyin-creator-pc-tabs-content-top input',
+    {
+      isAll: true
+    }
+  )
+  // 模拟输入
+  searchInput[0].value = task.dyUserId
+  // 触发input的input事件
+  searchInput[0].dispatchEvent(new Event('input', { bubbles: true }))
+  // 模拟键盘enter
+
+  console.log(searchInput, '找到输入框')
+  // 触发 focus 事件
+  searchInput[0].focus()
+  await delay(500)
+
+  simulateKeyPress(13, searchInput[0])
+
+  return
+}
+
 // 账号列表
 const accountList = []
 // 创建一个空数组来保存收集到的数据
@@ -631,6 +659,28 @@ function goToPage(page) {
 async function goToChildPage() {
   const task = getCacheTask()
 
+  // 找到搜索子账号输入框
+  const searchInput = await waitForElement(
+    '.douyin-creator-pc-tabs-content.douyin-creator-pc-tabs-content-top input',
+    {
+      isAll: true
+    }
+  )
+  // 模拟输入
+  searchInput[0].value = task.dyUserId
+  // 触发input的input事件
+  searchInput[0].dispatchEvent(new Event('input', { bubbles: true }))
+  // 模拟键盘enter
+
+  console.log(searchInput, '找到输入框')
+  // 触发 focus 事件
+  searchInput[0].focus()
+  await delay(500)
+
+  simulateKeyPress(13, searchInput[0])
+
+  return
+
   const itemsPerPage = 5
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
@@ -649,6 +699,28 @@ async function goToChildPage() {
   }
   // 获取当前页面的table
   getTable(task)
+}
+
+// 模拟键盘事件的函数
+function simulateKeyPress(keyCode, element = document.body) {
+  console.log('simulateKeyPress', keyCode)
+  const keydown = new KeyboardEvent('keydown', {
+    keyCode: keyCode,
+    which: keyCode,
+    bubbles: true,
+    cancelable: true
+  })
+
+  element.dispatchEvent(keydown)
+  const keyUp = new KeyboardEvent('keyUp', {
+    keyCode: keyCode,
+    which: keyCode,
+    bubbles: true,
+    cancelable: true
+  })
+
+  element.dispatchEvent(keyUp)
+  console.log('simulateKeyPress', keyCode)
 }
 
 // 自动化任务执行-开始
@@ -671,7 +743,6 @@ async function getTask() {
       return
     }
     localStorage.setItem('task', JSON.stringify(res))
-    await delay(DELAY.DOM_DELAY)
     // 进入子账号页面
     goToChildPage()
   } catch (error) {
@@ -1249,7 +1320,7 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
       .then((response) => response.json())
       .then((data) => {
         console.log(api + ':接口请求返回的data', data)
-        if (data.code === 200) {
+        if (data.code === 200 && data.data) {
           resolve(data.data)
         } else {
           MAX_ERROR_COUNT--
