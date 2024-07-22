@@ -114,10 +114,6 @@ async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
 
-  if (testFn && creatorHomePage) {
-    testFn()
-  }
-
   // 测试页面
   if (window.location.href.includes(PAGE.systemPage)) {
     const pushBtn = await waitForElement('#pushTaskBtn')
@@ -381,29 +377,6 @@ async function reloadTable() {
 
 // 机构号-子账号列表操作-开始
 
-async function testFn() {
-  // 找到搜索子账号输入框
-  const searchInput = await waitForElement(
-    '.douyin-creator-pc-tabs-content.douyin-creator-pc-tabs-content-top input',
-    {
-      isAll: true
-    }
-  )
-  // 模拟输入
-  searchInput[0].value = task.dyUserId
-  // 触发input的input事件
-  searchInput[0].dispatchEvent(new Event('input', { bubbles: true }))
-  // 模拟键盘enter
-
-  console.log(searchInput, '找到输入框')
-  // 触发 focus 事件
-  searchInput[0].focus()
-  await delay(500)
-
-  simulateKeyPress(13, searchInput[0])
-
-  return
-}
 
 // 账号列表
 const accountList = []
@@ -657,33 +630,11 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-  const task = getCacheTask()
-
-  // 找到搜索子账号输入框
-  const searchInput = await waitForElement(
-    '.douyin-creator-pc-tabs-content.douyin-creator-pc-tabs-content-top input',
-    {
-      isAll: true
-    }
-  )
-  // 模拟输入
-  searchInput[0].value = task.dyUserId
-  // 触发input的input事件
-  searchInput[0].dispatchEvent(new Event('input', { bubbles: true }))
-  // 模拟键盘enter
-
-  console.log(searchInput, '找到输入框')
-  // 触发 focus 事件
-  searchInput[0].focus()
-  await delay(500)
-
-  simulateKeyPress(13, searchInput[0])
-
-  return
-
   const itemsPerPage = 5
+  const task = getCacheTask()
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
+
   console.log(childIndex, 'childIndex')
   // 先判断childIndex在第几页
   if (childIndex === -1) {
@@ -699,28 +650,6 @@ async function goToChildPage() {
   }
   // 获取当前页面的table
   getTable(task)
-}
-
-// 模拟键盘事件的函数
-function simulateKeyPress(keyCode, element = document.body) {
-  console.log('simulateKeyPress', keyCode)
-  const keydown = new KeyboardEvent('keydown', {
-    keyCode: keyCode,
-    which: keyCode,
-    bubbles: true,
-    cancelable: true
-  })
-
-  element.dispatchEvent(keydown)
-  const keyUp = new KeyboardEvent('keyUp', {
-    keyCode: keyCode,
-    which: keyCode,
-    bubbles: true,
-    cancelable: true
-  })
-
-  element.dispatchEvent(keyUp)
-  console.log('simulateKeyPress', keyCode)
 }
 
 // 自动化任务执行-开始
