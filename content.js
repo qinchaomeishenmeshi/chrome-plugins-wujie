@@ -26,8 +26,8 @@ disablePopups()
 
 const API = {
   // basicURL
-  // BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
+  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
   // 获取任务task的api
   getTaskApi: '/admin/autopublishtask/getNoPublicData',
   // 同步账号的api
@@ -376,7 +376,6 @@ async function reloadTable() {
 }
 
 // 机构号-子账号列表操作-开始
-
 
 // 账号列表
 const accountList = []
@@ -1249,17 +1248,17 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
       .then((response) => response.json())
       .then((data) => {
         console.log(api + ':接口请求返回的data', data)
-        if (data.code === 200 && data.data) {
+        if (data.code === 200) {
           resolve(data.data)
         } else {
           MAX_ERROR_COUNT--
-          $handleError(`${api}---接口返回错误: ${JSON.stringify(data)}`)
           createNotification(`${api}---接口返回错误: ${JSON.stringify(data)}`)
           reject(new Error(`${api}---接口返回错误: ${JSON.stringify(data)}`))
         }
       })
       .catch((error) => {
         MAX_ERROR_COUNT--
+        $handleError(`${api}---接口返回错误: ${JSON.stringify(data)}`)
         createNotification(`Fetch Error:: ${error}`)
         reject(error)
       })
@@ -1327,7 +1326,7 @@ function createNotification(message) {
   // 自动移除提示框
   setTimeout(() => {
     container.remove()
-  }, 3000) // 3秒后自动移除
+  }, 5000) // 3秒后自动移除
 }
 
 // 工具函数 - 结束
