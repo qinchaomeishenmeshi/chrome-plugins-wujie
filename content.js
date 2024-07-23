@@ -7,56 +7,8 @@
  * 修改任务状态
  * 退出登录
  * */
-function disablePopups() {
-  window.alert = function () {
-    console.log('Alert blocked.')
-  }
-  window.confirm = function () {
-    console.log('Confirm blocked.')
-    return false
-  }
-  window.prompt = function () {
-    console.log('Prompt blocked.')
-    return null
-  }
-}
 
-// 执行重写函数
-disablePopups()
 
-const API = {
-  // basicURL
-  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
-  // 获取任务task的api
-  getTaskApi: '/admin/autopublishtask/getNoPublicData',
-  // 同步账号的api
-  syncAccountApi: '/admin/juzhensubaccount/accountManage',
-  // 发布成功的api
-  updateAutoPublishTaskApi: '/admin/autopublishtask/updateAutoPublishTask',
-  // 记录失败日志的api
-  failedApi: '/admin/autopublishtask/failAutoPublishTask'
-}
-
-const DELAY = {
-  // DOM 操作延迟时间
-  DOM_DELAY: 2000,
-  // 页面加载延迟时间
-  PAGE_DELAY: 5000
-}
-
-const PAGE = {
-  // 机构号首页
-  creatorHomePage: 'https://creator.douyin.com/creator-micro/home',
-  // 子账号首页
-  childCreatorHomePage: 'https://creator.douyin.com/',
-  // 子账号内容管理页码
-  childContentPage: 'https://creator.douyin.com/content/manage',
-  // 子账号上传页面
-  childUploadPage: 'https://creator.douyin.com/content/',
-  // 子账号发布页面
-  childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page'
-}
 
 // 页面加载完成后执行监听
 watchPage()
@@ -81,6 +33,9 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   console.log('操作：action----' + action)
 
   switch (action) {
+    case 'pushTask': // 推送任务
+      pushTask()
+      break
     case 'sync': // 同步账号
       createNotification('准备开始同步账号')
       getTableAll()
@@ -109,6 +64,19 @@ async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
 
+  // 测试页面
+  if (window.location.href.includes(PAGE.systemPage)) {
+    const pushBtn = await waitForElement('#pushTaskBtn')
+    console.log(pushBtn, 'pushBtn')
+    // 如果pushBtn存在，则添加事件监听
+    if (pushBtn) {
+      pushBtn.addEventListener('click', async () => {
+        // 发送系统通知
+        chrome.runtime.sendMessage({ action: 'pushTask' })
+      })
+    }
+  }
+
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
 
@@ -119,11 +87,13 @@ async function watchPage() {
   }
 
   // 分页面进行操作
+  console.log('当前页面：', window.location.href)
   switch (window.location.href) {
     case PAGE.creatorHomePage: // 机构号首页-获取任务
       getTask()
       break
     case PAGE.childCreatorHomePage: // 子账号首页
+      createNotification('进入子账号')
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
@@ -146,9 +116,26 @@ async function watchPage() {
       childLogout()
       break
 
-    default:
+    default: // 其他页面
       break
   }
+}
+
+// 获取chrome缓存的tabId
+async function getDouyinTabId() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'getDouyinTabId' }, (response) => {
+      console.log('getDouyinTabId---response', response)
+      resolve(response)
+    })
+  })
+}
+
+async function pushTask() {
+  console.log('混剪点击了。pushTask')
+  createNotification('收到推送任务准备开始')
+  localStorage.setItem('taskStatus', '1')
+  getTask()
 }
 
 // 时间选择框操作 - 开始
@@ -383,7 +370,7 @@ async function getTableAll() {
       // 打印收集到的数据
       console.log(dataList)
 
-      if (dataList && dataList.length > 5) {
+      if (dataList && dataList.length >= 5) {
         // 获取最大页码
         await getMaxPage()
 
@@ -417,11 +404,16 @@ async function getTableAll() {
   }
 }
 
-// 同步账号信息
-async function syncAccount() {
+// 获取机构号
+async function getMainAccountId() {
   const accountElement = await waitForElement('#sub-app p', { isAll: true })
   const mainAccountId = accountElement[0].innerText.trim()
-  console.log(mainAccountId, 'mainAccountId')
+  return mainAccountId
+}
+
+// 同步账号信息
+async function syncAccount() {
+  const mainAccountId = await getMainAccountId()
   // 去重
   const params = [...new Set(dataList)].map((item) => {
     return {
@@ -587,11 +579,11 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-  const task = getCacheTask()
-
   const itemsPerPage = 5
+  const task = getCacheTask()
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
   const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
+
   console.log(childIndex, 'childIndex')
   // 先判断childIndex在第几页
   if (childIndex === -1) {
@@ -613,16 +605,22 @@ async function goToChildPage() {
 
 // 获取要开始的任务
 async function getTask() {
-  createNotification('获取要开始的任务')
   try {
-    const res = await $Request(API.getTaskApi)
+    const mainAccountId = await getMainAccountId()
+    console.log(mainAccountId, 'mainAccountId')
+    if (!mainAccountId || mainAccountId === null || mainAccountId === 'null') {
+      createNotification('机构号错误，请先重新同步账号')
+      return
+    }
+
+    createNotification(mainAccountId + '：准备获取要开始的任务')
+    const res = await $Request(API.getTaskApi + '?mainAccountId=' + mainAccountId, {})
     if (!res) {
       localStorage.setItem('taskStatus', '0')
       createNotification('没有新的任务')
       return
     }
     localStorage.setItem('task', JSON.stringify(res))
-    await delay(DELAY.DOM_DELAY)
     // 进入子账号页面
     goToChildPage()
   } catch (error) {
@@ -647,9 +645,13 @@ async function toChildUploadPage() {
     if (navListItems && navListItems.length) {
       navListItems[1].click()
       console.log('子页面上导航栏 clicked')
+    } else {
+      $handleError('未找到子页面上导航栏')
+      reloadPage()
     }
   } catch (error) {
     $handleError(error)
+    reloadPage()
   }
 }
 
@@ -926,343 +928,6 @@ async function childLogout() {
 
 // 工具函数 - 开始
 
-// 元素查找函数
-async function waitForElement(selector, options = {}) {
-  const querySelectorAll = options.isAll || false
-  const timeout = options.timeout || 10000 // 每次尝试的超时时间
-  const interval = options.interval || DELAY.DOM_DELAY // 检查间隔
-  const retryDelay = options.retryDelay || DELAY.DOM_DELAY // 每次重试之间的等待时间
-  const maxRetries = options.maxRetries || 50 // 最大重试次数
 
-  let retries = 0
-
-  function checkElement() {
-    return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector)
-  }
-
-  // 等待 DOMContentLoaded 事件
-  if (document.readyState === 'loading') {
-    await new Promise((resolve) => {
-      document.addEventListener('DOMContentLoaded', resolve, { once: true })
-    })
-  }
-
-  while (retries < maxRetries) {
-    const startTime = Date.now()
-    while (Date.now() - startTime < timeout) {
-      const element = checkElement()
-      if (element && (querySelectorAll ? element.length > 0 : true)) {
-        return element
-      }
-      await delay(interval)
-    }
-    // 如果达到这里，说明本次尝试超时
-    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`)
-    await delay(retryDelay)
-    retries++
-  }
-
-  createNotification(`Element not found after ${maxRetries} retries: ${selector}`)
-  $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
-  throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
-}
-
-// 延迟函数
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// 将 OSS URL 转换为 File 对象的函数
-async function urlToFile(url, name) {
-  // 使用 fetch 获取文件的 Blob 数据
-  const response = await fetch(url)
-  const blob = await response.blob()
-  // 随机文件名
-  const fileName = `${name}-${Date.now()}.mp4`
-  // 获取文件类型
-  const fileType = blob.type
-  console.log({ fileName, fileType })
-  // 将 Blob 转换为 File 对象
-  return new File([blob], fileName, { type: fileType })
-}
-
-// 模拟鼠标移动到指定坐标
-function simulateMouseMove(x, y) {
-  const mouseEnterEvent = new MouseEvent('mouseenter', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x,
-    clientY: y
-  })
-
-  const mouseOverEvent = new MouseEvent('mouseover', {
-    view: window,
-    bubbles: true,
-    cancelable: true,
-    clientX: x + 3,
-    clientY: y + 3
-  })
-
-  const targetElement = document.elementFromPoint(x, y)
-  console.log(targetElement, 'targetElement')
-  if (targetElement) {
-    // targetElement.dispatchEvent(mouseMoveEvent);
-    targetElement.dispatchEvent(mouseEnterEvent)
-    targetElement.dispatchEvent(mouseOverEvent)
-    console.log(`Simulated mouse move and enter to: (${x}, ${y})`)
-  } else {
-    console.error('No element found at the specified coordinates:', x, y)
-    $handleError('No element found at the specified coordinates')
-  }
-}
-
-// 滚动到目标位置
-async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) {
-  return new Promise((resolve, reject) => {
-    const targetLi = Array.from(list).find((li) => li.textContent.trim().includes(target))
-
-    if (!targetLi) {
-      console.error('simulateWheelEvent error: 未找到目标元素')
-      $handleError('simulateWheelEvent error: 未找到目标元素')
-      reject('simulateWheelEvent error: 未找到目标元素')
-      return
-    }
-
-    try {
-      console.log(target, 'target')
-      // 使用 scrollIntoView 方法滚动到目标元素
-      targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' })
-
-      // 定义一个轮询检查函数
-      const checkPosition = () => {
-        const rect = targetLi.getBoundingClientRect()
-        const isAtPosition = rect.top >= 0 && rect.bottom <= window.innerHeight
-
-        if (isAtPosition) {
-          resolve()
-        } else {
-          if (retryCount < maxRetries) {
-            console.log(`Retrying... (${retryCount + 1}/${maxRetries})`)
-            simulateWheelEvent(list, target, retryCount + 1, maxRetries)
-              .then(resolve)
-              .catch(reject)
-          } else {
-            console.error('simulateWheelEvent error: Exceeded maximum retries')
-            reject('simulateWheelEvent error: Exceeded maximum retries')
-          }
-        }
-      }
-
-      // 开始检查滚动位置
-      setTimeout(checkPosition, 1000)
-    } catch (error) {
-      console.error('模拟鼠标滚轮事件的函数error:', error)
-      reject('模拟鼠标滚轮事件的函数error')
-    }
-  })
-}
-
-// 清除缓存数据
-function removeStorageKey() {
-  return new Promise((resolve, reject) => {
-    // 定义要查找的前缀
-    const prefix = 'publish_form_cache:'
-    // 遍历 localStorage 中的所有键
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-
-      // 检查键是否以指定前缀开头
-      if (key.includes(prefix)) {
-        console.log('key----' + key)
-        // 获取该键的值
-        const cachedData = localStorage.getItem(key)
-        // 检查键是否存在
-        if (cachedData) {
-          // 删除指定的键
-          localStorage.removeItem(cachedData)
-          resolve('已删除指定的键')
-        } else {
-          $handleError('removeStorageKey:未找到匹配的键')
-          reject('未找到匹配的键')
-        }
-      }
-    }
-  })
-}
-
-// 获取缓存数据
-function getStorageKey() {
-  return new Promise((resolve, reject) => {
-    // 定义要查找的前缀
-    const prefix = 'publish_form_cache:'
-    const cachedDataList = []
-
-    // 遍历 localStorage 中的所有键
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-
-      // 检查键是否以指定前缀开头
-      if (key.includes(prefix)) {
-        console.log('key----' + key)
-
-        // 获取该键的值
-        const cachedData = localStorage.getItem(key)
-        console.log('找到的数据:', parseJSON(cachedData, []))
-        // 将数据添加到结果列表中
-        cachedDataList.push(key)
-      }
-    }
-
-    // 检查是否找到了匹配的数据
-    if (cachedDataList.length > 0) {
-      resolve(cachedDataList)
-    } else {
-      $handleError('getStorageKey:未找到匹配的键')
-      createNotification('getStorageKey:未找到匹配的键')
-      reject('未找到匹配的键')
-    }
-  })
-}
-
-// 等待页面加载完成
-function waitForPageLoad() {
-  return new Promise((resolve) => {
-    if (document.readyState === 'complete') {
-      resolve()
-    } else {
-      window.addEventListener('load', () => {
-        resolve()
-      })
-    }
-  })
-}
-
-// 重新加载页面
-async function reloadPage(timeout = DELAY.PAGE_DELAY) {
-  await delay(timeout)
-  window.location.reload()
-}
-
-// 解析JSON
-function parseJSON(jsonString = '', defaultValue = null) {
-  // 不可为空，null,undefined
-  if (
-    !jsonString ||
-    jsonString === null ||
-    jsonString === undefined ||
-    jsonString === 'null' ||
-    jsonString === 'undefined'
-  ) {
-    return defaultValue
-  }
-  try {
-    return JSON.parse(jsonString)
-  } catch (error) {
-    return defaultValue
-  }
-}
-
-// // TODO: 暂时用内部的，后续需要改成外部的request.js
-
-// 通用的调用接口方法
-function $Request(api = '', { options = {}, params = {} } = {}) {
-  const requestURL = API.BaseUrl + api
-  console.log(
-    '接口请求开始：' +
-      JSON.stringify({
-        api,
-        options,
-        params
-      })
-  )
-
-  return new Promise((resolve, reject) => {
-    fetch(requestURL, {
-      method: options.method || 'POST',
-      headers: {
-        'Content-Type': options.contentType || 'application/json'
-      },
-      ...(options.method === 'GET' ? {} : { body: JSON.stringify(params) })
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(api + ':接口请求返回的data', data)
-        if (data.code === 200) {
-          resolve(data.data)
-        } else {
-          $handleError(`接口返回错误: ${data.message}`)
-          createNotification(`接口返回错误: ${JSON.stringify(data)}`)
-          reject(new Error(`接口返回错误: ${data.message}`))
-        }
-      })
-      .catch((error) => {
-        createNotification(`Fetch Error:: ${error}`)
-        reject(error)
-      })
-  })
-}
-
-// 错误处理函数，将错误信息存储在 localStorage 中
-async function $handleError(error) {
-  console.log('发生错误:', error)
-
-  // 获取当前任务和错误日志
-  const task = getCacheTask()
-  const errorLogs = parseJSON(localStorage.getItem('errorLogs'), [])
-
-  console.log(errorLogs, 'errorLogs')
-  // 创建新的错误日志
-  const errorLog = {
-    message: error.message || error,
-    stack: error.stack,
-    time: new Date().toLocaleString()
-  }
-
-  // 将新的错误日志添加到错误日志数组中
-  errorLogs.push(errorLog)
-
-  // 更新本地存储中的错误日志
-  localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
-
-  // 发送请求，报告任务失败
-  await $Request(API.failedApi, {
-    params: {
-      failedReason: task.id + ':' + (error.message || error) + '_____' + new Date().toLocaleString()
-    }
-  }).catch((error) => {
-    throw new Error('Failed to report error: ' + error)
-  })
-}
-
-function createNotification(message) {
-  // 发送系统通知
-  chrome.runtime.sendMessage({ action: 'fromContent', message })
-  // 发送页面进度通知
-  // 创建一个容器
-  const container = document.createElement('div')
-  container.style.position = 'fixed'
-  container.style.width = '100%'
-  container.style.top = '0'
-  container.style.left = '0'
-  container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'
-  container.style.color = 'white'
-  container.style.padding = '10px'
-  container.style.borderRadius = '5px'
-  container.style.zIndex = '10000'
-  container.style.fontFamily = 'Arial, sans-serif'
-  container.style.transition = '.3s'
-
-  // 设置消息内容
-  container.innerText = message
-
-  // 添加到文档
-  document.body.appendChild(container)
-
-  // 自动移除提示框
-  setTimeout(() => {
-    container.remove()
-  }, 3000) // 3秒后自动移除
-}
 
 // 工具函数 - 结束
