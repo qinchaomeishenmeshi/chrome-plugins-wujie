@@ -767,12 +767,12 @@ async function autoFillForm() {
           // 重新赋值 cache 数据
           const newCacheData = {
             ...cache,
-            itemTitle: task.videoName,
+            itemTitle: task.videoName || '',
             textResult: {
-              text: task.topicName ? task.remark + task.topicName : task.remark,
+              text: task.topicName ? (task.remark || '') + task.topicName : task.remark || '',
               textExtra: [],
               activity: [],
-              caption: task.topicName ? task.remark + task.topicName : task.remark
+              caption: task.topicName ? (task.remark || '') + task.topicName : task.remark || ''
             }
           }
           const newData = JSON.stringify({ type, cache: newCacheData })
