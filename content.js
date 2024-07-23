@@ -168,6 +168,9 @@ async function publishTimePickerSelect(_dateTime) {
       const currentYear = currentDateTime.split('-')[0]
       const currentMonth = currentDateTime.split('-')[1]
       console.log('当前选择不是dateTime日期，判断是否为当前年月')
+      console.log(currentYear, 'currentYear')
+      console.log(currentMonth, 'currentMonth')
+      console.log(month, 'month')
       if (currentYear === year && currentMonth === month) {
         console.log('年月相同，直接选择日期')
         // 选择日期
@@ -179,8 +182,10 @@ async function publishTimePickerSelect(_dateTime) {
         resolve(true)
       } else {
         console.log('年月不同，先选择年月，再选择日期')
+        // 去掉月之前的0
+        const newMonth = month.replace(/^0+/, '')
         // 选择年月
-        await selectYearMonth(year, month)
+        await selectMonth(year, newMonth)
         await delay(DELAY.DOM_DELAY)
         // 选择日期
         await selectDate(day)
@@ -249,7 +254,7 @@ async function selectYearMonth(year, month) {
   const yearList = yearMonthSelect[0].querySelectorAll('li')
   console.log(yearList, 'yearList')
   simulateWheelEvent(yearList, year)
-  await delay(DELAY.DOM_DELAY)
+  await delay(3000)
   // 月份列表
   const monthList = yearMonthSelect[1].querySelectorAll('li')
   console.log(monthList, 'monthList')
@@ -262,13 +267,35 @@ async function selectYearMonth(year, month) {
   // 年月选择结束
 }
 
+async function selectMonth(year, month) {
+  const currentDate = new Date()
+  const targetDate = new Date(year, month - 1) // month is 1-based, JavaScript Date uses 0-based months
+
+  if (targetDate > currentDate) {
+    console.log('下个月')
+    const monthBtns = await waitForElement('.semi-datepicker-navigation button', {
+      isAll: true
+    })
+    console.log(monthBtns, 'monthBtns')
+    const nextMonthBtn = monthBtns[2] // assuming index 1 is the next month button
+    // 添加点击事件
+    nextMonthBtn.click()
+    console.log(nextMonthBtn, 'nextMonthBtn')
+    await delay(DELAY.DOM_DELAY)
+  }
+}
+
 // 选择日期
 async function selectDate(day) {
+  // 如果day是0开头，则去掉0
+  day = day.toString().replace(/^0/, '')
   const dateList = await waitForElement('.semi-datepicker-month .semi-datepicker-day', {
     isAll: true
   })
   console.log(dateList, 'dateList')
-  const dateElement = dateList[day]
+  console.log(day, 'day')
+  // 找到dateList中的day
+  const dateElement = Array.from(dateList).find((element) => element.textContent.trim() === day)
   console.log(dateElement, '日期')
   dateElement.click()
 }
