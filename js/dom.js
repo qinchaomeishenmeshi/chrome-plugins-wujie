@@ -111,7 +111,7 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
       await delay(DELAY.DOM_DELAY)
       resolve()
 
-      定义一个轮询检查函数
+      // 定义一个轮询检查函数
       const checkPosition = () => {
         const rect = targetLi.getBoundingClientRect()
         const isAtPosition = rect.top >= 0 && rect.bottom <= window.innerHeight

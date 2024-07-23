@@ -4,7 +4,7 @@ var MAX_ERROR_COUNT = 5
 // 延迟时间设置
 const DELAY = {
   // DOM 操作延迟时间
-  DOM_DELAY: 1000,
+  DOM_DELAY: 2000,
   // 页面加载延迟时间
   PAGE_DELAY: 5000
 }
