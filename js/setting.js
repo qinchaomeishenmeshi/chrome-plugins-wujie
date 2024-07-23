@@ -1,5 +1,5 @@
 // 最大错误次数
-const MAX_ERROR_COUNT = 5
+var MAX_ERROR_COUNT = 5
 
 // 延迟时间设置
 const DELAY = {
