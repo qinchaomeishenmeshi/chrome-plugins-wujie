@@ -15,7 +15,7 @@ function injectContentScript(tabId) {
     chrome.scripting.executeScript(
       {
         target: { tabId: tabId },
-        files: ['content.js']
+        files: ['js/request.js', 'content.js']
       },
       () => {
         if (chrome.runtime.lastError) {

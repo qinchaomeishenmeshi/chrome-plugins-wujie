@@ -32,10 +32,25 @@
         "http://*/*"
       ],
       "js": [
+        "js/setting.js",
+        "js/dom.js",
+        "js/message.js",
+        "js/request.js",
+        "js/utils.js",
         "content.js"
       ],
       "run_at": "document_start",
       "word": "MAIN"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/*.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {
