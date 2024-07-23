@@ -7,6 +7,24 @@ chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   console.log(tab, '当前tab')
 })
 
+chrome.runtime.onMessage.addListener(async (message) => {
+  switch (message.action) {
+    case 'fromContent':
+      messageCreate(message.message)
+      break
+    case 'pushTask':
+      console.log('pushTask---background.js 接收', message)
+      pushTask(message)
+      break
+    case 'getDouyinTabId':
+      // 获取缓存的douyinTabId
+      douyinTabId = await getDouyinTabId()
+      break
+    default:
+      console.log('未知的action:', message.action)
+  }
+})
+
 // 注入内容脚本并返回一个Promise
 function injectContentScript(tabId) {
   console.log(tabId, 'tabId')
@@ -15,7 +33,7 @@ function injectContentScript(tabId) {
     chrome.scripting.executeScript(
       {
         target: { tabId: tabId },
-        files: ['js/request.js', 'content.js']
+        files: ['content.js']
       },
       () => {
         if (chrome.runtime.lastError) {
@@ -29,57 +47,44 @@ function injectContentScript(tabId) {
   })
 }
 
-chrome.runtime.onMessage.addListener((message, callback) => {
-  console.log(message, 'background.js ---- onMessage')
-  if (message.action === 'fromContent') {
-    messageCreate(message.message)
-  }
-  if (message.action === 'pushTask') {
-    console.log('pushTask---background.js 接收', message)
-    // 获取所有tab页签
-    chrome.tabs.query({}, function (tabs) {
-      console.log(tabs, '获取所有tab页签-tabs')
-      // 遍历所有页签,如果有douyinHomePage,则激活，没有则创建并激活
-      let isExist = false
-      tabs.forEach(async (tab) => {
-        if (tab.url === douyinHomePage) {
-          isExist = true
-          douyinTabId = tab.id
-          console.log('存在抖音创作页签', tab)
-          // 放入缓存
-          chrome.storage.local.set({ douyinTabId: tab.id })
-          // 激活tab
-          chrome.tabs.update(tab.id, { active: true })
-          await injectContentScript(douyinTabId)
-          // 1s后向content-script发送消息
-          sendMessageToContentScript(
-            { action: 'pushTask', message: message.message },
-            callback,
-            douyinTabId
-          )
-        }
-      })
-      if (!isExist) {
-        messageCreate('不存在抖音创作页签，即将打开')
-        chrome.tabs.create({ url: douyinHomePage })
-      }
-    })
-  }
-
-  if (message.action === 'getDouyinTabId') {
-    getDouyinTabId().then((res) => {
-      console.log(res, 'getDouyinTabId')
-      douyinTabId = res
-    })
-  }
-})
-
 // 获取缓存的douyinTabId
 async function getDouyinTabId() {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     chrome.storage.local.get('douyinTabId', (result) => {
       resolve(result.douyinTabId)
     })
+  })
+}
+
+// 推送任务
+function pushTask(message) {
+  // 获取所有tab页签
+  chrome.tabs.query({}, function (tabs) {
+    console.log(tabs, '获取所有tab页签-tabs')
+    // 遍历所有页签,如果有douyinHomePage,则激活，没有则创建并激活
+    let isExist = false
+    tabs.forEach(async (tab) => {
+      if (tab.url === douyinHomePage) {
+        isExist = true
+        douyinTabId = tab.id
+        console.log('存在抖音创作页签', tab)
+        // 放入缓存
+        chrome.storage.local.set({ douyinTabId: tab.id })
+        // 激活tab
+        chrome.tabs.update(tab.id, { active: true })
+        await injectContentScript(douyinTabId)
+        // 1s后向content-script发送消息
+        sendMessageToContentScript(
+          { action: 'pushTask', message: message.message },
+          callback,
+          douyinTabId
+        )
+      }
+    })
+    if (!isExist) {
+      messageCreate('不存在抖音创作页签，即将打开')
+      chrome.tabs.create({ url: douyinHomePage })
+    }
   })
 }
 
