@@ -1,18 +1,3 @@
-/**
- * @description: 抖音创作中心自动化脚本，用于自动填写表单并发布视频
- * 同步账号
- * 获取任务
- * 上传视频
- * 发布视频
- * 修改任务状态
- * 退出登录
- * */
-
-
-
-// 页面加载完成后执行监听
-watchPage()
-
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
@@ -120,6 +105,8 @@ async function watchPage() {
       break
   }
 }
+// 页面加载完成后执行监听
+watchPage()
 
 // 获取chrome缓存的tabId
 async function getDouyinTabId() {
@@ -927,7 +914,5 @@ async function childLogout() {
 // 退出代运营状态-结束
 
 // 工具函数 - 开始
-
-
 
 // 工具函数 - 结束

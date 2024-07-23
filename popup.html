@@ -16,31 +16,51 @@
     html,
     body,
     #root {
-      height: 100%;
-      min-height: 100%;
-      width: auto;
-      min-width: 164px;
       background-color: #fff;
     }
 
-    .action-container {
+    .main {
+      margin: 0 auto;
+      width: 480px;
+      height: 540px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
     }
 
+    .title {
+      font-family: 'Courier New', Courier, monospace;
+      margin: 20px auto;
+      text-align: center;
+    }
+
+    .title p {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .action-container {
+      padding: 10px;
+      width: 100%;
+      flex: 1;
+      /* 九宫格布局 */
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 10px;
+    }
+
     .action-item {
       width: 100%;
-      margin: 4px auto;
       display: flex;
       justify-content: center;
       align-items: center;
     }
 
     .action-button {
-      width: 144px;
-      padding: 10px 20px;
+      width: 100%;
+      height: 100%;
       background-color: #007bff;
       color: white;
       border: none;
@@ -51,11 +71,30 @@
     .action-button:hover {
       background-color: #0056b3;
     }
+
+    .action-button.danger {
+      background-color: #dc3545;
+    }
+
+    .action-button.danger:hover {
+      background-color: #bd2130;
+    }
+
+    .action-button.warning {
+      background-color: #ffc107;
+    }
+
+    .action-button.warning:hover {
+      background-color: #d39e00;
+    }
   </style>
 </head>
 
 <body>
-  <div id="root">
+  <div id="root" class="main">
+    <div class="title">
+      <p>无界自动化插件 1.0 version</p>
+    </div>
     <div class="action-container">
       <div class="action-item">
         <button id="syncBtn" class="action-button">
@@ -68,12 +107,12 @@
         </button>
       </div>
       <div class="action-item">
-        <button id="endBtn" class="action-button">
+        <button id="endBtn" class="action-button danger">
           停止自动化任务
         </button>
-        </div>
-        <div class="action-item">
-        <button id="reloadBtn" class="action-button">
+      </div>
+      <div class="action-item">
+        <button id="reloadBtn" class="action-button warning">
           保持登陆
         </button>
       </div>
