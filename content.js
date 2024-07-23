@@ -130,6 +130,7 @@ async function pushTask() {
 async function publishTimePickerSelect(_dateTime) {
   const task = getCacheTask()
   const t = _dateTime || task.sendTime
+
   return new Promise(async (resolve, reject) => {
     // 拆解dateTime
     const [date, time] = t.split(' ')
@@ -142,6 +143,14 @@ async function publishTimePickerSelect(_dateTime) {
     console.log(hour, minute, 'hour')
 
     // 选择发布方式
+
+    // 如果发布时间为空或小于当前时间后的2小时内，则立即发布
+    if (!t || new Date(t).getTime() < new Date().getTime() + 2 * 60 * 60 * 1000) {
+      $handleError(task.sendTime + '----发布时间为空或小于当前时间后的2小时内，则立即发布')
+      await selectPublishType(false)
+      resolve(true)
+      return
+    }
     await selectPublishType(true)
     await delay(DELAY.DOM_DELAY)
     // 打开日期选择器
