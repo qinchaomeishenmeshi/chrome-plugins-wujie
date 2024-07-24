@@ -139,3 +139,15 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
     }
   })
 }
+
+// 模拟点击事件
+async function simulateClick(element, delayTime = 0) {
+  if (!element) {
+    console.error('Element not found:', element)
+    $handleError('Element not found')
+    return
+  }
+  element.click()
+  console.log('Simulated click event:', element)
+  await delay(delayTime ? delayTime : DELAY.DOM_DELAY)
+}

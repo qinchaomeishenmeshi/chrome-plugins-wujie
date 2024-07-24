@@ -140,7 +140,7 @@ async function getContentTab(tab) {
       break
   }
   if (tabToClick) {
-    tabToClick.click()
+    simulateClick(tabToClick)
     await delay(DELAY.DOM_DELAY)
   }
 }
@@ -246,12 +246,12 @@ async function selectPublishType(isTiming) {
     // 找到innerText为“定时发布”的label标签，点击定时发布
     const label = Array.from(labels).find((item) => item.innerText === '定时发布')
     console.log(label, 'label')
-    label.click()
+    simulateClick(label)
   } else {
     // 立即发布
     const label = Array.from(labels).find((item) => item.innerText === '立即发布')
     console.log(label, 'label')
-    label.click()
+    simulateClick(label)
   }
 }
 
@@ -260,7 +260,7 @@ async function selectDateTime() {
   // 打开日期选择器
   const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
   console.log(datePickerElement, '日期选择器')
-  datePickerElement.click()
+  simulateClick(datePickerElement)
 }
 
 // 获取当前日期
@@ -281,8 +281,7 @@ async function selectYearMonth(year, month) {
   const datePickerHeader = await waitForElement('.semi-datepicker-navigation-month>button')
   console.log(datePickerHeader, 'datePickerHeader')
   // 如果不是，则点击
-  datePickerHeader.click()
-  await delay(DELAY.DOM_DELAY)
+  simulateClick(datePickerHeader)
   //  年份列表
   const yearMonthSelect = await waitForElement(
     '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
@@ -300,7 +299,7 @@ async function selectYearMonth(year, month) {
   // 点击返回日期选择
   const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
   console.log(backBtn, 'backBtn')
-  backBtn.click()
+  simulateClick(backBtn)
   // 年月选择结束
 }
 
@@ -316,9 +315,8 @@ async function selectMonth(year, month) {
     console.log(monthBtns, 'monthBtns')
     const nextMonthBtn = monthBtns[2] // assuming index 1 is the next month button
     // 添加点击事件
-    nextMonthBtn.click()
+    simulateClick(nextMonthBtn)
     console.log(nextMonthBtn, 'nextMonthBtn')
-    await delay(DELAY.DOM_DELAY)
   }
 }
 
@@ -334,7 +332,7 @@ async function selectDate(day) {
   // 找到dateList中的day
   const dateElement = Array.from(dateList).find((element) => element.textContent.trim() === day)
   console.log(dateElement, '日期')
-  dateElement.click()
+  simulateClick(dateElement)
 }
 
 // 选择时间
@@ -342,8 +340,7 @@ async function selectTime(hour, minute) {
   // 时间选择按钮
   const timePicker = await waitForElement('.semi-datepicker-switch-time')
   console.log(timePicker, 'timePicker')
-  timePicker.click()
-  await delay(DELAY.DOM_DELAY)
+  simulateClick(timePicker)
   // 时间列表
   const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
     isAll: true
@@ -530,8 +527,8 @@ async function getTable(task) {
       console.log(childAccount, 'childAccount')
       if (childAccount) {
         // 点击子账号的操作按钮
-        childAccount.actions[0].click()
         createNotification('准备跳转子账号页面')
+        simulateClick(childAccount.actions[0])
       } else {
         localStorage.setItem('taskStatus', '0')
         createNotification('未找到子账号，请检查并重新同步账号')
@@ -578,9 +575,8 @@ async function prevPage() {
       '.douyin-creator-pc-page-item.douyin-creator-pc-page-prev'
     )
     if (prevPageButton) {
-      prevPageButton.click()
-      console.log('prevPageButton clicked')
-      await delay(DELAY.DOM_DELAY) // 等待页面加载完成
+      simulateClick(prevPageButton)
+      console.log('simulateClick clicked')
       await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到上一页按钮')
@@ -597,9 +593,8 @@ async function nextPage() {
       '.douyin-creator-pc-page-item.douyin-creator-pc-page-next'
     )
     if (nextPageButton) {
-      nextPageButton.click()
+      simulateClick(nextPageButton)
       console.log('nextPageButton clicked')
-      await delay(DELAY.DOM_DELAY) // 等待页面加载完成
       await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到下一页按钮')
@@ -705,7 +700,7 @@ async function toChildUploadPage() {
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
     console.log(navListItems)
     if (navListItems && navListItems.length) {
-      navListItems[1].click()
+      simulateClick(navListItems[1])
       console.log('子页面上导航栏 clicked')
     } else {
       $handleError('未找到子页面上导航栏')
@@ -809,8 +804,7 @@ async function publishVideo(_videoElement) {
       for (const button of publishButtons) {
         if (button.textContent.trim() === '发布') {
           await publishSuccess()
-          button.click()
-          await delay(DELAY.PAGE_DELAY)
+          simulateClick(button)
           // 退出代运营状态
           window.location.href = PAGE.childContentPage
         }
@@ -871,8 +865,14 @@ async function autoFillForm() {
             itemTitle: task.videoName || '',
             textResult: {
               text: oldText
-                ? oldText + ('#' + topicNames[cacheAutoFillFormCount] || '')
-                : (task.remark || '') + ('#' + topicNames[cacheAutoFillFormCount] || ''),
+                ? oldText +
+                  (topicNames[cacheAutoFillFormCount]
+                    ? '#' + topicNames[cacheAutoFillFormCount]
+                    : '')
+                : (task.remark || '') +
+                  (topicNames[cacheAutoFillFormCount]
+                    ? '#' + topicNames[cacheAutoFillFormCount]
+                    : ''),
               textExtra: [...(oldTextExtra || [])], // 深拷贝 oldTextExtra 数组
               activity: [],
               caption: ''
@@ -888,11 +888,10 @@ async function autoFillForm() {
         return
       }
       // 如果有话题，需要做话题操作
-      if (topicNames[cacheAutoFillFormCount]) {
+      if (topicNames && topicNames.length && topicNames[cacheAutoFillFormCount] !== undefined) {
         console.log('话题操作---' + topicNames[cacheAutoFillFormCount])
         await topicOperation(topicNames[cacheAutoFillFormCount])
       }
-      await delay(DELAY.DOM_DELAY)
 
       // 如果有poi地址，需要做poi操作
       if (task && task.task && task.task.poiAddressName) {
@@ -907,7 +906,7 @@ async function autoFillForm() {
       // 修改缓存的autoFillFormCount
       cacheAutoFillFormCount++
 
-      if (cacheAutoFillFormCount != topicNames.length) {
+      if (cacheAutoFillFormCount != topicNames.length && topicNames.length > 0) {
         localStorage.setItem('cacheAutoFillFormCount', cacheAutoFillFormCount)
         flag = true
       } else {
@@ -936,8 +935,7 @@ async function topicOperation(txt) {
       // 找到span的父元素
       const parent = span.parentElement
       console.log(parent, 'span---话题点击了')
-      parent.click()
-      await delay(DELAY.PAGE_DELAY)
+      simulateClick(parent)
     }
   } else {
     $handleError('没有找到----topicOperation')
@@ -950,8 +948,7 @@ async function poiOperation(txt) {
   const select = await waitForElement('#douyin_creator_pc_anchor_jump .semi-select-selection')
   console.log(select, 'select')
   // 下拉选择点击
-  select.click()
-  await delay(DELAY.DOM_DELAY)
+  simulateClick(select)
   // 找到input
   const input = await waitForElement(
     '#douyin_creator_pc_anchor_jump .semi-select-selection input[type="text"]'
@@ -969,7 +966,8 @@ async function poiOperation(txt) {
   console.log(popoverContent, 'popoverContent')
   if (popoverContent && popoverContent.length) {
     // 点击第一个
-    popoverContent[0].click()
+
+    simulateClick(popoverContent[0])
     console.log(popoverContent[0], 'poi点击了')
   } else {
     $handleError('没有找到----poiOperation')
@@ -1017,7 +1015,7 @@ async function childLogout() {
     console.log(logout)
 
     if (logout) {
-      logout.click()
+      simulateClick(logout)
       console.log('logout clicked')
     } else {
       // 重新进入子账号页面
