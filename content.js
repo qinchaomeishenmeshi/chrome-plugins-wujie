@@ -806,13 +806,12 @@ async function publishVideo(_videoElement) {
       createNotification('表单已自动填写，进行发布操作')
       await publishTimePickerSelect()
       console.log('点击发布按钮')
-      await delay(DELAY.DOM_DELAY)
       const publishButtons = await waitForElement('button', { isAll: true })
       // 遍历按钮，查找内容为 "发布" 的按钮
       for (const button of publishButtons) {
         if (button.textContent.trim() === '发布') {
-          button.click()
           await publishSuccess()
+          button.click()
           await delay(DELAY.PAGE_DELAY)
           // 退出代运营状态
           window.location.href = PAGE.childContentPage
@@ -948,12 +947,14 @@ async function publishSuccess() {
   try {
     // 获取任务数据
     const task = getCacheTask()
+    console.log(task, 'task---publishSuccess')
     const res = await $Request(API.updateAutoPublishTaskApi, {
       params: {
         id: task.id
       }
     })
     console.log(res, '发布成功接口---res')
+
     createNotification('发出发布成功接口请求，准备退出代运营状态')
   } catch (error) {
     $handleError(error)
