@@ -1,3 +1,9 @@
+// 是否多话题
+let isBatchTopic = false
+let batchTopicCount = 0
+let topicNames = []
+let autoFillFormCount = 0
+
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
   console.log(
@@ -48,20 +54,6 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
-  getContentTab()
-
-  // 测试页面
-  if (window.location.href.includes(PAGE.systemPage)) {
-    const pushBtn = await waitForElement('#pushTaskBtn')
-    console.log(pushBtn, 'pushBtn')
-    // 如果pushBtn存在，则添加事件监听
-    if (pushBtn) {
-      pushBtn.addEventListener('click', async () => {
-        // 发送系统通知
-        chrome.runtime.sendMessage({ action: 'pushTask' })
-      })
-    }
-  }
 
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
@@ -728,9 +720,14 @@ async function toChildUploadPage() {
 // 通过接口获取文件路径
 async function uploadVideoFn() {
   createNotification('准备上传视频')
+
   // 获取任务数据
   const task = getCacheTask()
   const { filePath, videoName } = task
+
+  // 将autoFillFormCount初始化并放入缓存
+  localStorage.setItem('cacheAutoFillFormCount', 0)
+
   try {
     const file = await urlToFile(filePath, videoName)
     // 获取上传按钮，并将file上传
@@ -782,6 +779,7 @@ async function checkUploadVideo() {
     }
   } catch (error) {
     $handleError(error)
+    taskFailed('上传后检查是否加载成功中出现错误', error)
   }
 }
 
@@ -821,18 +819,35 @@ async function publishVideo(_videoElement) {
   } catch (error) {
     console.error('表单自动填写过程中出现错误:', error)
     createNotification('表单自动填写过程中出现错误')
+    taskFailed('表单自动填写过程中出现错误', error)
     $handleError(error)
   }
 }
 
 // 自动填充表单，写入缓存后刷新一次页面，如果再次进入则不再填充
+// 自动填充表单
 async function autoFillForm() {
   createNotification('自动填充表单')
+
   return new Promise(async (resolve, reject) => {
     let flag = false
+    // 获取任务数据
+    const task = getCacheTask()
+    // 缓存的自动填充表单次数
+    let cacheAutoFillFormCount = localStorage.getItem('cacheAutoFillFormCount')
     try {
-      // 获取任务数据
-      const task = getCacheTask()
+      // 如果 task.topicName 存在
+      if (task.topicName) {
+        // 使用正则表达式查找所有的 #
+        const matches = task.topicName.match(/#/g) || []
+
+        // 计算 # 的数量
+        batchTopicCount = matches.length
+        isBatchTopic = batchTopicCount > 1
+
+        // 分割 topicName 并过滤掉空字符串
+        topicNames = task.topicName.split('#').filter(Boolean)
+      }
 
       // 获取缓存数据
       const cacheList = await getStorageKey()
@@ -844,17 +859,24 @@ async function autoFillForm() {
           if (!cacheItem || cacheItem === 'null' || cacheItem === 'undefined') {
             return
           }
+
           // 获取缓存数据
           const { type, cache } = parseJSON(cacheItem, {})
+          const oldTextExtra = cache.textResult.textExtra
+          const oldText = cache.textResult.text
+
           // 重新赋值 cache 数据
           const newCacheData = {
             ...cache,
             itemTitle: task.videoName || '',
             textResult: {
-              text: task.topicName ? (task.remark || '') + task.topicName : task.remark || '',
-              textExtra: [],
+              text: oldText
+                ? oldText + ('#' + topicNames[cacheAutoFillFormCount] || '')
+                : (task.remark || '') + ('#' + topicNames[cacheAutoFillFormCount] || ''),
+              textExtra: [...(oldTextExtra || [])], // 深拷贝 oldTextExtra 数组
               activity: [],
-              caption: task.topicName ? (task.remark || '') + task.topicName : task.remark || ''
+              caption: ''
+              // caption: task.topicName ? (task.remark || '') + task.topicName : task.remark || ''
             }
           }
           const newData = JSON.stringify({ type, cache: newCacheData })
@@ -866,8 +888,9 @@ async function autoFillForm() {
         return
       }
       // 如果有话题，需要做话题操作
-      if (task.topicName) {
-        await topicOperation(task.topicName)
+      if (topicNames[cacheAutoFillFormCount]) {
+        console.log('话题操作---' + topicNames[cacheAutoFillFormCount])
+        await topicOperation(topicNames[cacheAutoFillFormCount])
       }
       await delay(DELAY.DOM_DELAY)
 
@@ -878,13 +901,24 @@ async function autoFillForm() {
 
       console.log('表单自动填写成功')
 
-      // 设置标志位，表明已经填写过表单
-      localStorage.setItem('isResetCache', '1')
-      flag = true
+      // 如果autoFillCount不等于topicNames长度，继续填充，否则设置标志位，表明已经填写过表单
+      console.log(cacheAutoFillFormCount, 'cacheAutoFillFormCount')
+      console.log(topicNames.length, 'topicNames.length ')
+      // 修改缓存的autoFillFormCount
+      cacheAutoFillFormCount++
+
+      if (cacheAutoFillFormCount != topicNames.length) {
+        localStorage.setItem('cacheAutoFillFormCount', cacheAutoFillFormCount)
+        flag = true
+      } else {
+        localStorage.setItem('isResetCache', '1')
+        flag = true
+      }
       resolve(flag) // 返回成功标志
     } catch (error) {
       console.error('autoFillForm 出现错误:', error)
       $handleError(error)
+      taskFailed('autoFillForm 出现错误:', error)
       reject(error) // 返回错误信息
     }
   })
@@ -892,18 +926,18 @@ async function autoFillForm() {
 
 // 话题操作
 async function topicOperation(txt) {
-  txt = txt.replace('#', '')
-  await delay(DELAY.PAGE_DELAY)
   const element = await waitForElement('.mention-suggest-mount-dom span', { isAll: true })
   console.log(element, 'element', txt)
   // 找到所有的span标签，如果是#则点击索引为0的span标签
   if (element && element.length) {
     const span = Array.from(element).find((item) => item.innerText === txt)
+    console.log(span, 'span')
     if (span) {
       // 找到span的父元素
       const parent = span.parentElement
       console.log(parent, 'span---话题点击了')
       parent.click()
+      await delay(DELAY.PAGE_DELAY)
     }
   } else {
     $handleError('没有找到----topicOperation')

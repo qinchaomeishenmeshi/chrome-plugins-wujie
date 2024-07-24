@@ -46,9 +46,8 @@ function $Request(api = '', { options = {}, params = {} } = {}) {
 async function $handleError(error) {
   console.log('发生错误:', error)
 
-  // 获取当前任务和错误日志
-  const task = getCacheTask()
-  const errorLogs = parseJSON(sessionStorage.getItem('errorLogs'), [])
+  // 获取存储的错误日志，并翻转数组
+  const errorLogs = JSON.parse(localStorage.getItem('errorLogs') || '[]').reverse()
 
   console.log(errorLogs, 'errorLogs')
   // 创建新的错误日志
@@ -57,13 +56,19 @@ async function $handleError(error) {
     stack: error.stack,
     time: new Date().toLocaleString()
   }
-
-  // 将新的错误日志添加到错误日志数组中
-  errorLogs.push(errorLog)
+  // 截取最新的20条错误日志
+  errorLogs.splice(0, 20)
+  // 将新的错误日志添加到错误日志数组中的第一个
+  errorLogs.unshift(errorLog)
 
   // 更新本地存储中的错误日志
-  sessionStorage.setItem('errorLogs', JSON.stringify(errorLogs))
+  localStorage.setItem('errorLogs', JSON.stringify(errorLogs))
+}
 
+async function taskFailed(error) {
+  // 获取当前任务和错误日志
+  const task = getCacheTask()
+  console.log('任务失败:', task, error)
   // 发送请求，报告任务失败
   await $Request(API.failedApi, {
     options: { method: 'POST' },
