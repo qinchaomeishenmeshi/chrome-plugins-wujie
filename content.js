@@ -48,6 +48,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
+  getContentTab()
 
   // 测试页面
   if (window.location.href.includes(PAGE.systemPage)) {
@@ -107,6 +108,50 @@ async function watchPage() {
 }
 // 页面加载完成后执行监听
 watchPage()
+
+// 获取内容管理tab
+async function getContentTab(tab) {
+  const element = await waitForElement('div[role="tablist"]', { isAll: true })
+  console.log(element, 'element-getContentTab')
+  const tabs = element[0].querySelectorAll('div[role="tab"]', { isAll: true })
+  // 成员管理
+  const accountTab = tabs[0]
+  console.log(accountTab, 'accountTab')
+  // 数据统计tab
+  const dataTab = tabs[1]
+  console.log(dataTab, 'dataTab')
+  // 内容管理tab
+  const contentTab = tabs[2]
+  console.log(contentTab, 'contentTab')
+  let tabToClick = null
+  switch (tab) {
+    case 'account':
+      // 点击成员管理
+      if (accountTab) {
+        tabToClick = accountTab
+      }
+      break
+    case 'data':
+      // 点击数据统计
+      if (dataTab) {
+        tabToClick = dataTab
+      }
+      break
+    case 'content':
+      // 点击内容管理
+      if (contentTab) {
+        tabToClick = contentTab
+      }
+      break
+
+    default:
+      break
+  }
+  if (tabToClick) {
+    tabToClick.click()
+    await delay(DELAY.DOM_DELAY)
+  }
+}
 
 // 获取chrome缓存的tabId
 async function getDouyinTabId() {
@@ -602,6 +647,8 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
+  // 进入成员管理tab
+  await getContentTab('account')
   const itemsPerPage = 5
   const task = getCacheTask()
   const dataLists = parseJSON(localStorage.getItem('dataList'), [])
