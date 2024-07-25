@@ -493,6 +493,7 @@ async function syncAccount() {
 
 // 获取子账号具体位置
 async function getTable(task) {
+  await delay(DELAY.DOM_DELAY)
   accountList.length = 0
   try {
     // 获取表格的tbody元素
