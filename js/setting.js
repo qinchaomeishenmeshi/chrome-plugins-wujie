@@ -1,6 +1,9 @@
 // 最大错误次数
 var MAX_ERROR_COUNT = 5
 
+// 每页的子账号数量
+const itemsPerPage = 5
+
 // 延迟时间设置
 const DELAY = {
   // DOM 操作延迟时间

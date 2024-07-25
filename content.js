@@ -54,7 +54,6 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
-  // choseCoverImage()
 
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
@@ -105,6 +104,24 @@ async function watchPage() {
 }
 // 页面加载完成后执行监听
 watchPage()
+
+// 跳转到page页面
+async function jumpToPage(page) {
+  const element = await waitForElement(
+    '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
+  )
+  console.log(element, 'element')
+  // 将滚动条滚动到页面最底部
+  window.scrollTo(0, document.body.scrollHeight)
+  // 获取element的位置，并将鼠标移动到element的位置中心点
+  const rect = element.getBoundingClientRect()
+  const x = rect.left + rect.width / 2
+  const y = rect.top + rect.height / 2
+  // 移动到element的位置
+  simulateMouseMove(x, y)
+  await delay(DELAY.DOM_DELAY)
+  await goToPage(page)
+}
 
 // 选择上传封面图片
 async function choseCoverImage() {
@@ -261,7 +278,6 @@ async function publishTimePickerSelect(_dateTime) {
     await delay(DELAY.DOM_DELAY)
     // 打开日期选择器
     await selectDateTime()
-    await delay(DELAY.DOM_DELAY)
     // 找到当前日期
     const currentDateTime = await getCurrentDate()
     if (currentDateTime === t) {
@@ -330,14 +346,16 @@ async function selectDateTime() {
   const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
   console.log(datePickerElement, '日期选择器')
   await simulateClick(datePickerElement)
+  console.log('点击日期选择器')
 }
 
 // 获取当前日期
 async function getCurrentDate() {
+  console.log('getCurrentDate-开始')
   // 找到当前日期
-  const currentDate = await waitForElement(
-    '.semi-datepicker-day.semi-datepicker-day-today.semi-datepicker-day-selected'
-  )
+  const currentDate = await waitForElement('.semi-datepicker-day.semi-datepicker-day-today')
+
+  console.log(currentDate, 'currentDate')
   // 获取属性title的值
   const currentDateTime = currentDate.getAttribute('title')
   console.log(currentDateTime, 'currentDate-title')
@@ -453,10 +471,10 @@ async function reloadTable() {
 
 // 机构号-子账号列表操作-开始
 
-// 账号列表
-const accountList = []
+// 当前账号列表
+const currentAccountList = []
 // 创建一个空数组来保存收集到的数据
-const dataList = []
+const accountList = []
 // 记录当前页数
 let currentPage = 1
 // 记录最大页数
@@ -490,19 +508,19 @@ async function getTableAll() {
         rowData.date = cells[2].textContent.trim()
 
         // 将rowData对象添加到dataList数组中
-        dataList.push(rowData)
+        accountList.push(rowData)
       })
 
       // 打印收集到的数据
-      console.log(dataList)
+      console.log(accountList, 'accountList')
 
-      if (dataList && dataList.length >= 5) {
+      if (accountList && accountList.length >= 5) {
         // 获取最大页码
         await getMaxPage()
 
         // 递归调用获取下一页数据
         if (currentPage < maxPage) {
-          createNotification('已获取子账号：' + dataList.length)
+          createNotification('已获取子账号：' + accountList.length)
           await nextPage()
           await getTableAll()
         } else {
@@ -541,7 +559,7 @@ async function getMainAccountId() {
 async function syncAccount() {
   const mainAccountId = await getMainAccountId()
   // 去重
-  const params = [...new Set(dataList)].map((item) => {
+  const params = [...new Set(accountList)].map((item) => {
     return {
       mainAccountId,
       ...item
@@ -552,7 +570,7 @@ async function syncAccount() {
     const res = await $Request(API.syncAccountApi, {
       params
     })
-    localStorage.setItem('dataList', JSON.stringify(params))
+    localStorage.setItem('accountList', JSON.stringify(params))
     console.log(res, '同步账号接口---res')
     createNotification(`同步账号接口请求结束，本次同步账号：${params.length}个`)
   } catch (error) {
@@ -562,8 +580,7 @@ async function syncAccount() {
 
 // 获取子账号具体位置
 async function getTable(task) {
-  await delay(DELAY.DOM_DELAY)
-  accountList.length = 0
+  currentAccountList.length = 0
   try {
     // 获取表格的tbody元素
     const table = document.querySelector('.douyin-creator-pc-table-tbody')
@@ -586,14 +603,14 @@ async function getTable(task) {
       rowData.sort = col
 
       // 将rowData对象添加到dataList数组中
-      accountList.push(rowData)
+      currentAccountList.push(rowData)
     })
 
     // 打印收集到的数据
-    console.log(accountList, 'accountList')
-    if (accountList && accountList.length) {
+    console.log(currentAccountList, '当前页面子账号列表')
+    if (currentAccountList && currentAccountList.length) {
       // 获取accountList中id为ID的元素
-      const childAccount = accountList.find((item) => item.dyAccountNo === task.dyUserId)
+      const childAccount = currentAccountList.find((item) => item.dyAccountNo === task.dyUserId)
       console.log(childAccount, 'childAccount')
       if (childAccount) {
         // 点击子账号的操作按钮
@@ -647,7 +664,6 @@ async function prevPage() {
     if (prevPageButton) {
       await simulateClick(prevPageButton)
       console.log('await simulateClick clicked')
-      await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到上一页按钮')
     }
@@ -665,38 +681,76 @@ async function nextPage() {
     if (nextPageButton) {
       await simulateClick(nextPageButton)
       console.log('nextPageButton clicked')
-      await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到下一页按钮')
     }
   } else {
     console.log('已经是最后一页')
   }
-  await delay(DELAY.DOM_DELAY) // 等待页面加载
 }
 
-// 跳转到某一页
-function goToPage(page) {
+// 滚动并跳转到制定页码
+function goToPage(pageIndex = 1) {
   return new Promise(async (resolve, reject) => {
-    await getMaxPage()
-    page = Number(page)
-    console.log('跳转到：', page)
-    if (page < 1 || page > maxPage) {
-      console.error('页码超出范围')
-      reject('页码超出范围')
-      return
-    }
-
-    while (currentPage !== page) {
-      if (page < currentPage) {
-        await prevPage()
-      } else if (page > currentPage) {
-        await nextPage()
+    try {
+      await getMaxPage()
+      // pageIndex如果不是数字，转换为数字
+      pageIndex = Number(pageIndex)
+      console.log('跳转到：', pageIndex)
+      if (pageIndex < 1 || pageIndex > maxPage) {
+        console.error('页码超出范围')
+        $handleError('页码超出范围')
+        reject('页码超出范围')
+        return
       }
-    }
+      const listElement = await waitForElement('.douyin-creator-pc-page-rest-list')
+      console.log(listElement, 'listElement')
 
-    console.log(`已经跳转到第${page}页`)
-    resolve(page)
+      // 滚动次数和每次滚动的步长
+      const pageHeight = 32 // 每页高度，单位像素
+      const scrollStep = pageHeight * 7 // 每次滚动7页的像素高度
+      let pageItem
+
+      // 如果页码小于等于7，直接点击
+      if (pageIndex <= 7) {
+        pageItem = await waitForElement(
+          `.douyin-creator-pc-page-rest-item[aria-label="${pageIndex}"]`,
+          { timeout: 1000 }
+        )
+        console.log(`找到第${pageIndex}页`, pageItem)
+        pageItem.click()
+        await delay(500)
+        console.log(`点击第${pageIndex}页`)
+        resolve(true)
+        return
+      }
+
+      // 模拟滚动找到指定页码
+      for (let i = 0; i < 20; i++) {
+        await simulateScroll(listElement, listElement.scrollTop + scrollStep, 500)
+        pageItem = await waitForElement(
+          `.douyin-creator-pc-page-rest-item[aria-label="${pageIndex}"]`,
+          { timeout: 500 }
+        ).catch(() => null)
+        if (pageItem) break
+      }
+
+      if (pageItem) {
+        console.log(`找到第${pageIndex}页`, pageItem)
+        pageItem.click()
+        await delay(500)
+        console.log(`点击第${pageIndex}页`)
+        resolve(true)
+      } else {
+        console.error(`未能找到第${pageIndex}页`)
+        $handleError(`未能找到第${pageIndex}页`)
+        resolve(false)
+      }
+    } catch (error) {
+      console.error(error)
+      $handleError(error)
+      reject(error)
+    }
   })
 }
 
@@ -704,28 +758,41 @@ function goToPage(page) {
 
 // 点击管理跳转子账号页面
 async function goToChildPage() {
-  // 进入成员管理tab
-  await getContentTab('account')
-  const itemsPerPage = 5
-  const task = getCacheTask()
-  const dataLists = parseJSON(localStorage.getItem('dataList'), [])
-  const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
+  try {
+    // 进入成员管理tab
+    await getContentTab('account')
+    // 获取任务数据
+    const task = getCacheTask()
+    // 获取缓存的子账号列表
+    const dataLists = parseJSON(localStorage.getItem('accountList'), [])
+    // 找到子账号的索引
+    const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
 
-  console.log(childIndex, 'childIndex')
-  // 先判断childIndex在第几页
-  if (childIndex === -1) {
-    console.log(' 子账号没找到 ')
-    return
-  }
-  // 每页5个元素，计算元素所在的页码
-  if (childIndex > 5) {
+    console.log(childIndex, 'childIndex')
+
+    // 判断childIndex是否存在
+    if (childIndex === -1) {
+      console.log('子账号没找到')
+      $handleError('子账号没找到')
+      taskFailed('子账号没找到')
+      return
+    }
+
+    // 计算页码
     const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
-    console.log(pageIndex, 'pageIndex')
+
     // 进入对应页码
-    await goToPage(pageIndex || 1)
+    if (pageIndex > 1) {
+      await jumpToPage(pageIndex)
+    }
+
+    // 获取当前页面的table
+    await getTable(task)
+  } catch (error) {
+    console.error('Error in goToChildPage:', error)
+    $handleError(error)
+    taskFailed('点击跳转子账号页面中出现错误', error)
   }
-  // 获取当前页面的table
-  getTable(task)
 }
 
 // 自动化任务执行-开始
@@ -1106,7 +1173,3 @@ async function childLogout() {
 }
 
 // 退出代运营状态-结束
-
-// 工具函数 - 开始
-
-// 工具函数 - 结束

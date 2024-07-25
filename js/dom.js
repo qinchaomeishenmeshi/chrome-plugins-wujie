@@ -21,45 +21,86 @@ function delay(ms) {
 }
 
 // 元素查找函数
+// async function waitForElement(selector, options = {}) {
+//   const querySelectorAll = options.isAll || false
+//   const timeout = options.timeout || 10000 // 每次尝试的超时时间
+//   const interval = options.interval || DELAY.DOM_DELAY // 检查间隔
+//   const retryDelay = options.retryDelay || DELAY.DOM_DELAY // 每次重试之间的等待时间
+//   const maxRetries = options.maxRetries || 10 // 最大重试次数
+
+//   let retries = 0
+
+//   function checkElement() {
+//     return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector)
+//   }
+
+//   // 等待 DOMContentLoaded 事件
+//   if (document.readyState === 'loading') {
+//     await new Promise((resolve) => {
+//       document.addEventListener('DOMContentLoaded', resolve, { once: true })
+//     })
+//   }
+
+//   while (retries < maxRetries) {
+//     const startTime = Date.now()
+//     while (Date.now() - startTime < timeout) {
+//       const element = checkElement()
+//       if (element && (querySelectorAll ? element.length > 0 : true)) {
+//         return element
+//       }
+//       await delay(interval)
+//     }
+//     // 如果达到这里，说明本次尝试超时
+//     console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`)
+//     await delay(retryDelay)
+//     retries++
+//   }
+
+//   createNotification(`Element not found after ${maxRetries} retries: ${selector}`)
+//   $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
+//   taskFailed(`Element not found after ${maxRetries} retries: ${selector}`)
+//   throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
+// }
+
 async function waitForElement(selector, options = {}) {
-  const querySelectorAll = options.isAll || false
-  const timeout = options.timeout || 10000 // 每次尝试的超时时间
-  const interval = options.interval || DELAY.DOM_DELAY // 检查间隔
-  const retryDelay = options.retryDelay || DELAY.DOM_DELAY // 每次重试之间的等待时间
-  const maxRetries = options.maxRetries || 10 // 最大重试次数
+  const { isAll = false, timeout = 5 * 60 * 1000 } = options
 
-  let retries = 0
-
-  function checkElement() {
-    return querySelectorAll ? document.querySelectorAll(selector) : document.querySelector(selector)
-  }
-
-  // 等待 DOMContentLoaded 事件
-  if (document.readyState === 'loading') {
-    await new Promise((resolve) => {
-      document.addEventListener('DOMContentLoaded', resolve, { once: true })
-    })
-  }
-
-  while (retries < maxRetries) {
-    const startTime = Date.now()
-    while (Date.now() - startTime < timeout) {
-      const element = checkElement()
-      if (element && (querySelectorAll ? element.length > 0 : true)) {
-        return element
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const interval = setInterval(() => {
+      console.log('waiting for element:', selector)
+      const element = isAll ? document.querySelectorAll(selector) : document.querySelector(selector)
+      if (element && (isAll ? element.length > 0 : true)) {
+        clearInterval(interval)
+        resolve(element)
+      } else if (Date.now() - start >= timeout) {
+        clearInterval(interval)
+        reject(new Error(`Element not found: ${selector}`))
       }
-      await delay(interval)
+    }, 100)
+  })
+}
+
+// 模拟滚动
+async function simulateScroll(element, targetPosition, duration = 1000) {
+  const start = element.scrollTop
+  const change = targetPosition - start
+  const startTime = performance.now()
+
+  function animateScroll(currentTime) {
+    const timeElapsed = currentTime - startTime
+    const progress = Math.min(timeElapsed / duration, 1) // 0 to 1
+    element.scrollTop = start + change * progress
+
+    if (progress < 1) {
+      requestAnimationFrame(animateScroll)
     }
-    // 如果达到这里，说明本次尝试超时
-    console.log(`Attempt ${retries + 1} failed. Retrying after ${retryDelay}ms...：${selector}`)
-    await delay(retryDelay)
-    retries++
   }
 
-  createNotification(`Element not found after ${maxRetries} retries: ${selector}`)
-  $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
-  taskFailed(`Element not found after ${maxRetries} retries: ${selector}`)
-  throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
+  return new Promise((resolve) => {
+    animateScroll(performance.now())
+    setTimeout(resolve, duration)
+  })
 }
 
 // 模拟鼠标移动到指定坐标
@@ -140,7 +181,6 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
     }
   })
 }
-
 
 // 模拟点击，返回一个 Promise
 async function simulateClick(element) {
