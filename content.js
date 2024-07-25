@@ -54,6 +54,7 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 async function watchPage() {
   await waitForPageLoad()
   console.log('页面加载成功。。。')
+  // choseCoverImage()
 
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
@@ -79,6 +80,9 @@ async function watchPage() {
       // 跳转到子账号页面的上传
       toChildUploadPage()
       break
+    case PAGE.childHomePage: // 子账号上传页面
+      window.location.href = PAGE.childUploadPage
+      break
     case PAGE.childUploadPage: // 子账号上传页面
       //  点击上传按钮
       uploadVideoFn()
@@ -100,6 +104,72 @@ async function watchPage() {
 }
 // 页面加载完成后执行监听
 watchPage()
+
+// 选择上传封面图片
+async function choseCoverImage() {
+  const element = await waitForElement('.content-upload-new svg', {
+    isAll: true
+  })
+  console.log(element, 'element----choseCoverImage')
+  if (element && element.length) {
+    console.log('找到封面图片上传')
+    await simulateClick(element[0].parentElement)
+    await choseCoverImageTab() // 使用 await 确保点击完成后再执行
+  } else {
+    $handleError('未找到封面图片上传')
+  }
+}
+
+// 上传封面图弹窗tab选择
+async function choseCoverImageTab() {
+  const element = await waitForElement('.semi-modal-body div', { isAll: true })
+  if (element && element.length) {
+    // textContent 为 '上传封面' 的元素
+    const tab = Array.from(element).find((item) => item.textContent === '上传封面')
+
+    console.log('找到封面图片上传tab', tab)
+
+    await simulateClick(tab) // 使用 await 确保点击完成后再执行
+
+    // 上传封面图
+    // 找到semi-upload中的input且type=file的元素
+    const inputElement = await waitForElement('.semi-upload input[type="file"]', {
+      isAll: true
+    })
+    console.log(inputElement, 'inputElement---封面图上传的input')
+    // 将url转换为file，然后上传
+    const task = getCacheTask()
+    const file = await urlToFile(task?.task?.coverPath)
+    const dataTransfer = new DataTransfer()
+    dataTransfer.items.add(file)
+    inputElement[0].files = dataTransfer.files
+    // 触发 change 事件以确保上传组件检测到文件
+    const event = new Event('change', { bubbles: true })
+    inputElement[0].dispatchEvent(event)
+    console.log('封面图 File uploaded successfully')
+
+    // 找到canvas-container。检查元素下的子元素id为uploadCrop的canvas是否有值
+    const uploadCropElement = await waitForElement('.canvas-container #uploadCrop')
+    console.log(uploadCropElement, 'uploadCropElement')
+    // 判断是否有值
+    if (uploadCropElement && uploadCropElement.toDataURL()) {
+      console.log('uploadCropElement.toDataURL()', uploadCropElement.toDataURL())
+      // 点击确定按钮,有2个tab，一个是选取封面，一个是上传封面，需要倒序一下
+      const confirmButton = await waitForElement('.semi-modal-body button', { isAll: true })
+      console.log(confirmButton, 'confirmButton')
+      // 倒序找到文字为完成的按钮
+      const confirm = Array.from(confirmButton)
+        .reverse()
+        .find((item) => item.textContent === '完成')
+      console.log(confirm, 'confirm')
+      await simulateClick(confirm) // 使用 await 确保点击完成后再执行
+    } else {
+      $handleError('未找到uploadCropElement或者uploadCropElement.toDataURL()为空')
+    }
+  } else {
+    $handleError('未找到上传封面图弹窗tab选择')
+  }
+}
 
 // 获取内容管理tab
 async function getContentTab(tab) {
@@ -139,10 +209,8 @@ async function getContentTab(tab) {
     default:
       break
   }
-  if (tabToClick) {
-    simulateClick(tabToClick)
-    await delay(DELAY.DOM_DELAY)
-  }
+
+  tabToClick && (await simulateClick(tabToClick))
 }
 
 // 获取chrome缓存的tabId
@@ -246,12 +314,12 @@ async function selectPublishType(isTiming) {
     // 找到innerText为“定时发布”的label标签，点击定时发布
     const label = Array.from(labels).find((item) => item.innerText === '定时发布')
     console.log(label, 'label')
-    simulateClick(label)
+    await simulateClick(label)
   } else {
     // 立即发布
     const label = Array.from(labels).find((item) => item.innerText === '立即发布')
     console.log(label, 'label')
-    simulateClick(label)
+    await simulateClick(label)
   }
 }
 
@@ -260,7 +328,7 @@ async function selectDateTime() {
   // 打开日期选择器
   const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
   console.log(datePickerElement, '日期选择器')
-  simulateClick(datePickerElement)
+  await simulateClick(datePickerElement)
 }
 
 // 获取当前日期
@@ -281,7 +349,7 @@ async function selectYearMonth(year, month) {
   const datePickerHeader = await waitForElement('.semi-datepicker-navigation-month>button')
   console.log(datePickerHeader, 'datePickerHeader')
   // 如果不是，则点击
-  simulateClick(datePickerHeader)
+  await simulateClick(datePickerHeader)
   //  年份列表
   const yearMonthSelect = await waitForElement(
     '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
@@ -299,7 +367,7 @@ async function selectYearMonth(year, month) {
   // 点击返回日期选择
   const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
   console.log(backBtn, 'backBtn')
-  simulateClick(backBtn)
+  await simulateClick(backBtn)
   // 年月选择结束
 }
 
@@ -315,7 +383,7 @@ async function selectMonth(year, month) {
     console.log(monthBtns, 'monthBtns')
     const nextMonthBtn = monthBtns[2] // assuming index 1 is the next month button
     // 添加点击事件
-    simulateClick(nextMonthBtn)
+    await simulateClick(nextMonthBtn)
     console.log(nextMonthBtn, 'nextMonthBtn')
   }
 }
@@ -332,7 +400,7 @@ async function selectDate(day) {
   // 找到dateList中的day
   const dateElement = Array.from(dateList).find((element) => element.textContent.trim() === day)
   console.log(dateElement, '日期')
-  simulateClick(dateElement)
+  await simulateClick(dateElement)
 }
 
 // 选择时间
@@ -340,7 +408,7 @@ async function selectTime(hour, minute) {
   // 时间选择按钮
   const timePicker = await waitForElement('.semi-datepicker-switch-time')
   console.log(timePicker, 'timePicker')
-  simulateClick(timePicker)
+  await simulateClick(timePicker)
   // 时间列表
   const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
     isAll: true
@@ -529,7 +597,7 @@ async function getTable(task) {
       if (childAccount) {
         // 点击子账号的操作按钮
         createNotification('准备跳转子账号页面')
-        simulateClick(childAccount.actions[0])
+        await simulateClick(childAccount.actions[0])
       } else {
         localStorage.setItem('taskStatus', '0')
         createNotification('未找到子账号，请检查并重新同步账号')
@@ -576,8 +644,8 @@ async function prevPage() {
       '.douyin-creator-pc-page-item.douyin-creator-pc-page-prev'
     )
     if (prevPageButton) {
-      simulateClick(prevPageButton)
-      console.log('simulateClick clicked')
+      await simulateClick(prevPageButton)
+      console.log('await simulateClick clicked')
       await getMaxPage() // 更新当前页码
     } else {
       $handleError('未找到上一页按钮')
@@ -594,7 +662,7 @@ async function nextPage() {
       '.douyin-creator-pc-page-item.douyin-creator-pc-page-next'
     )
     if (nextPageButton) {
-      simulateClick(nextPageButton)
+      await simulateClick(nextPageButton)
       console.log('nextPageButton clicked')
       await getMaxPage() // 更新当前页码
     } else {
@@ -701,7 +769,7 @@ async function toChildUploadPage() {
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
     console.log(navListItems)
     if (navListItems && navListItems.length) {
-      simulateClick(navListItems[1])
+      await simulateClick(navListItems[1])
       console.log('子页面上导航栏 clicked')
     } else {
       $handleError('未找到子页面上导航栏')
@@ -781,6 +849,7 @@ async function checkUploadVideo() {
 
 // 视频加载完毕后写入缓存准备发布
 async function publishVideo(_videoElement) {
+  const task = getCacheTask()
   try {
     // 检查是否需要重新写入缓存
     const cacheFlag = localStorage.getItem('isResetCache')
@@ -798,14 +867,22 @@ async function publishVideo(_videoElement) {
       // 已经填写过表单，进行发布操作
       console.log('表单已自动填写，进行发布操作')
       createNotification('表单已自动填写，进行发布操作')
+
+      // 如果有封面，需要做封面操作
+      if (task && task.task && task.task.coverPath) {
+        await choseCoverImage()
+      }
+      // 发布方式选择
       await publishTimePickerSelect()
+
+      // 点击发布按钮
       console.log('点击发布按钮')
       const publishButtons = await waitForElement('button', { isAll: true })
       // 遍历按钮，查找内容为 "发布" 的按钮
       for (const button of publishButtons) {
         if (button.textContent.trim() === '发布') {
           await publishSuccess()
-          simulateClick(button)
+          await simulateClick(button)
           // 退出代运营状态
           window.location.href = PAGE.childContentPage
         }
@@ -936,7 +1013,7 @@ async function topicOperation(txt) {
       // 找到span的父元素
       const parent = span.parentElement
       console.log(parent, 'span---话题点击了')
-      simulateClick(parent)
+      await simulateClick(parent)
     }
   } else {
     $handleError('没有找到----topicOperation')
@@ -949,7 +1026,7 @@ async function poiOperation(txt) {
   const select = await waitForElement('#douyin_creator_pc_anchor_jump .semi-select-selection')
   console.log(select, 'select')
   // 下拉选择点击
-  simulateClick(select)
+  await simulateClick(select)
   // 找到input
   const input = await waitForElement(
     '#douyin_creator_pc_anchor_jump .semi-select-selection input[type="text"]'
@@ -968,7 +1045,7 @@ async function poiOperation(txt) {
   if (popoverContent && popoverContent.length) {
     // 点击第一个
 
-    simulateClick(popoverContent[0])
+    await simulateClick(popoverContent[0])
     console.log(popoverContent[0], 'poi点击了')
   } else {
     $handleError('没有找到----poiOperation')
@@ -1016,7 +1093,7 @@ async function childLogout() {
     console.log(logout)
 
     if (logout) {
-      simulateClick(logout)
+      await simulateClick(logout)
       console.log('logout clicked')
     } else {
       // 重新进入子账号页面

@@ -140,14 +140,17 @@ async function simulateWheelEvent(list, target, retryCount = 0, maxRetries = 5) 
   })
 }
 
-// 模拟点击事件
-async function simulateClick(element, delayTime = 0) {
+
+// 模拟点击，返回一个 Promise
+async function simulateClick(element) {
   if (!element) {
     console.error('Element not found:', element)
     $handleError('Element not found')
     return
   }
-  element.click()
-  console.log('Simulated click event:', element)
-  await delay(delayTime ? delayTime : DELAY.DOM_DELAY)
+  return new Promise((resolve) => {
+    element.click()
+    // 模拟点击完成
+    setTimeout(resolve, DELAY.DOM_DELAY)
+  })
 }

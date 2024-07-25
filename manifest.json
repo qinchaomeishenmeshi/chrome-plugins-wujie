@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "无界自动化",
-  "version": "1.0",
+  "version": "1.8",
   "icons": {
     "16": "images/icon_16.png",
     "48": "images/icon_48.png",

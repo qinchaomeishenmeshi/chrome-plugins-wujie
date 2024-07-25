@@ -12,8 +12,8 @@ const DELAY = {
 // 接口API
 const API = {
   // basicURL
-  // BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
+  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
   // 获取任务task的api
   getTaskApi: '/admin/autopublishtask/getNoPublicData',
   // 同步账号的api
@@ -32,8 +32,10 @@ const PAGE = {
   childCreatorHomePage: 'https://creator.douyin.com/',
   // 子账号内容管理页码
   childContentPage: 'https://creator.douyin.com/content/manage',
+  // 子账号发布管理页面
+  childHomePage: 'https://creator.douyin.com/content/',
   // 子账号上传页面
-  childUploadPage: 'https://creator.douyin.com/content/',
+  childUploadPage: 'https://creator.douyin.com/content/upload',
   // 子账号发布页面
   childPublishPage: 'https://creator.douyin.com/content/publish?enter_from=publish_page',
   // 测试页面
