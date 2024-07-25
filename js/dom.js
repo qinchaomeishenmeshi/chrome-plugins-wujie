@@ -26,7 +26,7 @@ async function waitForElement(selector, options = {}) {
   const timeout = options.timeout || 10000 // 每次尝试的超时时间
   const interval = options.interval || DELAY.DOM_DELAY // 检查间隔
   const retryDelay = options.retryDelay || DELAY.DOM_DELAY // 每次重试之间的等待时间
-  const maxRetries = options.maxRetries || 50 // 最大重试次数
+  const maxRetries = options.maxRetries || 10 // 最大重试次数
 
   let retries = 0
 
@@ -58,6 +58,7 @@ async function waitForElement(selector, options = {}) {
 
   createNotification(`Element not found after ${maxRetries} retries: ${selector}`)
   $handleError(`Element not found after ${maxRetries} retries: ${selector}`)
+  taskFailed(`Element not found after ${maxRetries} retries: ${selector}`)
   throw new Error(`Element not found after ${maxRetries} retries: ${selector}`)
 }
 

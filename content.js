@@ -76,7 +76,8 @@ async function watchPage() {
       // 重新设置缓存标志位
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
-      await removeStorageKey()
+      removeStorageKey()
+      createNotification('准备进入子账号上传页面')
       // 跳转到子账号页面的上传
       toChildUploadPage()
       break
@@ -767,7 +768,6 @@ async function toChildUploadPage() {
   try {
     // 找到navList中的所有li元素
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
-    console.log(navListItems)
     if (navListItems && navListItems.length) {
       await simulateClick(navListItems[1])
       console.log('子页面上导航栏 clicked')
