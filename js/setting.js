@@ -15,8 +15,8 @@ const DELAY = {
 // 接口API
 const API = {
   // basicURL
-  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  // BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
+  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
   // 获取任务task的api
   getTaskApi: '/admin/autopublishtask/getNoPublicData',
   // 同步账号的api
