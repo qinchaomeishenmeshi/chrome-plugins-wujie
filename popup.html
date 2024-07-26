@@ -13,85 +13,24 @@
       box-sizing: border-box;
     }
 
-    html,
-    body,
-    #root {
-      background-color: #fff;
-    }
-
-    .main {
-      margin: 0 auto;
-      width: 480px;
-      height: 540px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .title {
-      font-family: 'Courier New', Courier, monospace;
-      margin: 20px auto;
-      text-align: center;
-    }
-
-    .title p {
-      font-size: 24px;
-      font-weight: bold;
-    }
-
-    .action-container {
-      padding: 10px;
-      width: 100%;
-      flex: 1;
-      /* 九宫格布局 */
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
-      gap: 10px;
-    }
-
-    .action-item {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .action-button {
-      width: 100%;
-      height: 100%;
-      background-color: #007bff;
-      color: white;
+    button {
       border: none;
-      border-radius: 5px;
+      background: none;
       cursor: pointer;
     }
 
-    .action-button:hover {
-      background-color: #0056b3;
-    }
-
-    .action-button.danger {
-      background-color: #dc3545;
-    }
-
-    .action-button.danger:hover {
-      background-color: #bd2130;
-    }
-
-    .action-button.warning {
-      background-color: #ffc107;
-    }
-
-    .action-button.warning:hover {
-      background-color: #d39e00;
+    html,
+    body,
+    #root {
+      background-color: rgba(255, 255, 255, 1);
     }
   </style>
+  <link rel="stylesheet" href="css/common.css">
+  <link rel="stylesheet" href="css/popup.css">
 </head>
 
 <body>
-  <div id="root" class="main">
+  <!-- <div id="root" class="main">
     <div class="title">
       <p>无界自动化插件 1.8 version</p>
     </div>
@@ -120,6 +59,41 @@
         <button id="logoutBtn" class="action-button">
           退出代运营
         </button>
+      </div>
+    </div>
+  </div> -->
+  
+  <div id="#root" class="page flex-col">
+    <div class="group_1 flex-col">
+      <div class="box_1 flex-col">
+        <span class="text_1">无界自动化插件&nbsp;1.8v</span>
+      </div>
+      <div class="box_2 flex-col">
+        <button class="button_1 flex-col" id="syncBtn">
+          <span class="text_2">同步账号</span>
+        </button>
+        <div class="section_1 flex-row justify-between">
+          <button class="button_2 flex-col" id="startBtn">
+            <span class="text_3">开始任务</span>
+          </button>
+          <button class="button_3 flex-col" id="endBtn">
+            <span class="text_4">停止任务</span>
+          </button>
+        </div>
+        <button class="button_4 flex-col" id="reloadBtn">
+          <span class="text_5">保持登陆状态</span>
+        </button>
+        <button class="button_5 flex-col" id="logoutBtn">
+          <span class="text_6">退出</span>
+        </button>
+        <!-- <span class="text_7">Privacy&nbsp;Policy</span>
+            <span class="text_8">Terms&nbsp;of&nbsp;Service</span>
+            <div class="section_2 flex-row justify-between">
+              <div class="icon_3 flex-col"></div>
+              <div class="icon_4 flex-col"></div>
+              <div class="icon_5 flex-col"></div>
+            </div>
+            <span class="text_9">Copyright&nbsp;©&nbsp;2023&nbsp;Automation&nbsp;Plugin</span> -->
       </div>
     </div>
   </div>

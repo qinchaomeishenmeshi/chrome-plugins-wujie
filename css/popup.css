@@ -1,0 +1,200 @@
+.page {
+  background-color: rgba(255, 255, 255, 1);
+  position: relative;
+  width: 375px;
+  height: auto;
+}
+.group_1 {
+  background-color: rgba(255, 255, 255, 0.25);
+  width: 375px;
+}
+.box_1 {
+  background-color: rgba(255, 255, 255, 1);
+  width: 375px;
+}
+.text_1 {
+  width: 343px;
+  height: 35px;
+  overflow-wrap: break-word;
+  color: rgba(51, 51, 51, 1);
+  font-size: 24px;
+  font-family: Noto Sans CJK;
+  font-weight: normal;
+  text-align: left;
+  white-space: nowrap;
+  line-height: 35px;
+  margin: 11px 0 8px 16px;
+}
+.box_2 {
+  width: 375px;
+  margin-bottom: 24px;
+}
+.button_1 {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background-image: linear-gradient(180deg, rgba(74, 144, 226, 1) 0, rgba(26, 115, 232, 1) 100%);
+  border-radius: 24px;
+  height: 48px;
+  width: 343px;
+  margin: 12px 0 0 16px;
+}
+.text_2 {
+  width: 80px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 1);
+  font-size: 16px;
+  font-family: Noto Sans CJK;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 12px 0 0 132px;
+}
+.section_1 {
+  width: 344px;
+  height: 48px;
+  margin: 24px 0 0 16px;
+}
+.button_2 {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background-image: linear-gradient(180deg, rgba(91, 141, 254, 1) 0, rgba(26, 115, 232, 1) 100%);
+  border-radius: 24px;
+  height: 48px;
+  width: 164px;
+}
+.text_3 {
+  width: 80px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 1);
+  font-size: 16px;
+  font-family: Noto Sans CJK;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 12px 0 0 42px;
+}
+.button_3 {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background-image: linear-gradient(360deg, rgba(234, 67, 53, 1) 0, rgba(255, 87, 51, 1) 100%);
+  border-radius: 24px;
+  height: 48px;
+  width: 164px;
+}
+.text_4 {
+  width: 80px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 1);
+  font-size: 16px;
+  font-family: Noto Sans CJK;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 12px 0 0 42px;
+}
+.button_4 {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background-image: linear-gradient(360deg, rgba(52, 168, 83, 1) 0, rgba(102, 187, 106, 1) 100%);
+  border-radius: 24px;
+  height: 48px;
+  width: 343px;
+  margin: 24px 0 0 16px;
+}
+.text_5 {
+  width: 120px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 1);
+  font-size: 16px;
+  font-family: Noto Sans CJK;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 12px 0 0 112px;
+}
+.button_5 {
+  box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25);
+  background-image: linear-gradient(360deg, rgba(234, 67, 53, 1) 0, rgba(255, 87, 51, 1) 100%);
+  border-radius: 24px;
+  height: 48px;
+  width: 343px;
+  margin: 24px 0 0 16px;
+}
+.text_6 {
+  width: 40px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 1);
+  font-size: 16px;
+  font-family: Noto Sans CJK;
+  font-weight: 400;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 12px 0 0 152px;
+}
+.text_7 {
+  width: 160px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(51, 51, 51, 1);
+  font-size: 16px;
+  font-family: Plus Jakarta Sans-Regular;
+  font-weight: normal;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 52px 0 0 108px;
+}
+.text_8 {
+  width: 160px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(51, 51, 51, 1);
+  font-size: 16px;
+  font-family: Plus Jakarta Sans-Regular;
+  font-weight: normal;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 24px 0 0 108px;
+}
+.section_2 {
+  width: 104px;
+  height: 24px;
+  margin: 24px 0 0 136px;
+}
+.icon_3 {
+  background-color: rgba(51, 51, 51, 1);
+  width: 24px;
+  height: 24px;
+}
+.icon_4 {
+  background-color: rgba(51, 51, 51, 1);
+  width: 24px;
+  height: 24px;
+  margin-left: 16px;
+}
+.icon_5 {
+  background-color: rgba(51, 51, 51, 1);
+  width: 24px;
+  height: 24px;
+  margin-left: 16px;
+}
+.text_9 {
+  width: 335px;
+  height: 24px;
+  overflow-wrap: break-word;
+  color: rgba(51, 51, 51, 1);
+  font-size: 16px;
+  font-family: Plus Jakarta Sans-Regular;
+  font-weight: normal;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 24px;
+  margin: 24px 20px;
+}
