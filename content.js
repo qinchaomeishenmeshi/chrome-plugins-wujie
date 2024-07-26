@@ -1,18 +1,13 @@
-// 是否多话题
-let isBatchTopic = false
-let batchTopicCount = 0
-let topicNames = []
-let autoFillFormCount = 0
+/**
+ * 1. 同步账号，将页面所有子账号表格数据存浏览器存储并发送给后台。
+ * 2. 开始任务，获取任务数据，跳转到子账号页面，点击内容管理，点击上传，填充cache缓存数据，选择话题，选择poi地址，选择封面图，选择发布时间，点击发布
+ * 3. 停止任务，重置任务状态，并reload页面
+ * 4. 保持登陆，重新加载table，切换page保持页面在操作
+ * 5. 退出代运营状态，点击退出代运营状态
+ */
 
 // 接收来自popup的消息
 chrome.runtime.onMessage.addListener(async function (request, sender, sendResponse) {
-  console.log(
-    `收到来自 ${
-      sender.tab ? 'content-script(' + sender.tab.url + ')' : 'popup或者background'
-    } 的消息：`,
-    request
-  )
-
   for (const key in request) {
     if (request.hasOwnProperty(key)) {
       const element = request[key]
@@ -21,15 +16,12 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
   }
   sendResponse('我收到你的消息了：' + JSON.stringify(request))
   var action = request['action']
-  console.log('操作：action----' + action)
+  createNotification('操作：action----' + action)
 
   switch (action) {
-    case 'pushTask': // 推送任务
-      pushTask()
-      break
     case 'sync': // 同步账号
       createNotification('准备开始同步账号')
-      getTableAll()
+      getAllAccount()
       break
     case 'start': // 开始任务
       localStorage.setItem('taskStatus', '1')
@@ -53,19 +45,19 @@ chrome.runtime.onMessage.addListener(async function (request, sender, sendRespon
 // 页面加载完成后执行监听
 async function watchPage() {
   await waitForPageLoad()
-  console.log('页面加载成功。。。')
+  createNotification('页面加载成功。。。')
 
   // 任务执行状态
   const taskStatus = localStorage.getItem('taskStatus')
 
   //
   if (taskStatus !== '1') {
-    console.log('任务状态不为1，不执行操作')
+    createNotification('非任务状态，不执行操作')
     return
   }
 
   // 分页面进行操作
-  console.log('当前页面：', window.location.href)
+  createNotification('当前页面：', window.location.href)
   switch (window.location.href) {
     case PAGE.creatorHomePage: // 机构号首页-获取任务
       getTask()
@@ -76,7 +68,6 @@ async function watchPage() {
       localStorage.setItem('isResetCache', '0')
       // 进入子页面先清空历史缓存数据
       removeStorageKey()
-      createNotification('准备进入子账号上传页面')
       // 跳转到子账号页面的上传
       toChildUploadPage()
       break
@@ -105,104 +96,233 @@ async function watchPage() {
 // 页面加载完成后执行监听
 watchPage()
 
-// 跳转到page页面
-async function jumpToPage(page) {
-  const element = await waitForElement(
-    '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
-  )
-  console.log(element, 'element')
-  // 将滚动条滚动到页面最底部
-  window.scrollTo(0, document.body.scrollHeight)
-  // 获取element的位置，并将鼠标移动到element的位置中心点
-  const rect = element.getBoundingClientRect()
-  const x = rect.left + rect.width / 2
-  const y = rect.top + rect.height / 2
-  // 移动到element的位置
-  simulateMouseMove(x, y)
-  await delay(DELAY.DOM_DELAY)
-  await goToPage(page)
-}
+// 1. 同步账号 开始
 
-// 选择上传封面图片
-async function choseCoverImage() {
-  const element = await waitForElement('.content-upload-new svg', {
-    isAll: true
-  })
-  console.log(element, 'element----choseCoverImage')
-  if (element && element.length) {
-    console.log('找到封面图片上传')
-    await simulateClick(element[0].parentElement)
-    await choseCoverImageTab() // 使用 await 确保点击完成后再执行
-  } else {
-    $handleError('未找到封面图片上传')
+// 获取所有账号列表数据
+async function getAllAccount() {
+  try {
+    // 获取最大页码
+    const maxPage = await getMaxPage()
+    createNotification(`maxPage最大${maxPage}页`)
+    // 获取表格的tr
+    const rows = await waitForElement('.douyin-creator-pc-table-tbody tr', { isAll: true })
+    // 遍历所有的tr元素
+    rows.forEach((row, col) => {
+      // 创建一个空对象来保存每行的数据
+      const rowData = {}
+
+      // 获取当前行的所有td元素
+      const cells = row.querySelectorAll('td')
+
+      // 获取每个td中的数据，并存储到rowData对象中
+      rowData.avatar = cells[0].querySelector('img').src
+      rowData.name = cells[0].querySelector('p').textContent.trim()
+      rowData.dyAccountNo = cells[1].textContent.trim()
+      rowData.date = cells[2].textContent.trim()
+      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
+      rowData.sort = col
+
+      // 将rowData对象添加到accountList数组中
+      accountList.push(rowData)
+    })
+    const showAccountList = accountList.map((item) => item.name)
+    createNotification(showAccountList, 'accountList')
+    // 如果数据超过5条，尝试获取下一页数据
+    if (maxPage > 1) {
+      if (currentPage < maxPage) {
+        createNotification('已获取子账号：' + accountList.length)
+        await nextPage()
+        return getAllAccount()
+      } else {
+        createNotification('所有页面的数据已获取完毕，准备同步')
+        syncAccount()
+      }
+    } else {
+      createNotification('子账号数量不足5个，准备同步')
+      // 如果没有5个以上的子账号，直接同步
+      syncAccount()
+    }
+  } catch (error) {
+    $handleError('getTableAll获取账号列表数据失败：' + JSON.stringify(error))
   }
 }
 
-// 上传封面图弹窗tab选择
-async function choseCoverImageTab() {
-  const element = await waitForElement('.semi-modal-body div', { isAll: true })
-  if (element && element.length) {
-    // textContent 为 '上传封面' 的元素
-    const tab = Array.from(element).find((item) => item.textContent === '上传封面')
-
-    console.log('找到封面图片上传tab', tab)
-
-    await simulateClick(tab) // 使用 await 确保点击完成后再执行
-
-    // 上传封面图
-    // 找到semi-upload中的input且type=file的元素
-    const inputElement = await waitForElement('.semi-upload input[type="file"]', {
-      isAll: true
-    })
-    console.log(inputElement, 'inputElement---封面图上传的input')
-    // 将url转换为file，然后上传
-    const task = getCacheTask()
-    const file = await urlToFile(task?.task?.coverPath)
-    const dataTransfer = new DataTransfer()
-    dataTransfer.items.add(file)
-    inputElement[0].files = dataTransfer.files
-    // 触发 change 事件以确保上传组件检测到文件
-    const event = new Event('change', { bubbles: true })
-    inputElement[0].dispatchEvent(event)
-    console.log('封面图 File uploaded successfully')
-
-    // 找到canvas-container。检查元素下的子元素id为uploadCrop的canvas是否有值
-    const uploadCropElement = await waitForElement('.canvas-container #uploadCrop')
-    console.log(uploadCropElement, 'uploadCropElement')
-    // 判断是否有值
-    if (uploadCropElement && uploadCropElement.toDataURL()) {
-      console.log('uploadCropElement.toDataURL()', uploadCropElement.toDataURL())
-      // 点击确定按钮,有2个tab，一个是选取封面，一个是上传封面，需要倒序一下
-      const confirmButton = await waitForElement('.semi-modal-body button', { isAll: true })
-      console.log(confirmButton, 'confirmButton')
-      // 倒序找到文字为完成的按钮
-      const confirm = Array.from(confirmButton)
-        .reverse()
-        .find((item) => item.textContent === '完成')
-      console.log(confirm, 'confirm')
-      await simulateClick(confirm) // 使用 await 确保点击完成后再执行
-    } else {
-      $handleError('未找到uploadCropElement或者uploadCropElement.toDataURL()为空')
+// 获取机构号
+async function getMainAccount() {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const accountElement = await waitForElement('#sub-app p', { isAll: true })
+      createNotification(accountElement, 'accountElement')
+      const mainAccountId = accountElement[0].textContent
+      resolve(mainAccountId)
+    } catch (error) {
+      $handleError('getMainAccountId获取机构号失败：' + JSON.stringify(error))
+      reject(error)
     }
-  } else {
-    $handleError('未找到上传封面图弹窗tab选择')
+  })
+}
+// 同步账号信息
+async function syncAccount() {
+  const mainAccountId = await getMainAccount()
+  // 去重
+  const params = [...new Set(accountList)].map((item) => {
+    return {
+      mainAccountId,
+      ...item
+    }
+  })
+  try {
+    // 调用接口传递给后台
+    await $Request(API.syncAccountApi, {
+      params
+    })
+    localStorage.setItem('accountList', JSON.stringify(params))
+    createNotification(`同步账号接口请求结束，本次同步账号：${params.length}个`)
+  } catch (error) {
+    $handleError(error)
+  }
+}
+
+// 1. 同步账号 结束
+
+// 2. 开始任务 开始
+
+// 获取缓存的task任务
+function getCacheTask() {
+  const task = parseJSON(localStorage.getItem('task'), {})
+  return task?.id ? task : {}
+}
+
+// 获取要开始的任务
+async function getTask() {
+  try {
+    const mainAccountId = await getMainAccount()
+
+    if (!mainAccountId || mainAccountId === null || mainAccountId === 'null') {
+      createNotification(`${mainAccountId}：机构号错误，请先重新同步账号`)
+      return
+    }
+
+    createNotification(`${mainAccountId}：准备获取要开始的任务`)
+
+    const res = await $Request(`${API.getTaskApi}?mainAccountId=${mainAccountId}`, {})
+
+    if (!res) {
+      localStorage.setItem('taskStatus', '0')
+      createNotification('没有新的任务')
+      return
+    }
+
+    localStorage.setItem('task', JSON.stringify(res))
+
+    // 进入子账号页面
+    await getChildPage()
+  } catch (error) {
+    localStorage.setItem('taskStatus', '0')
+    $handleError(`开始任务失败：${JSON.stringify(error)}`)
+  }
+}
+
+// 点击管理跳转子账号页面
+async function getChildPage() {
+  try {
+    // 进入成员管理tab
+    await getContentTab('account')
+
+    // 获取任务数据
+    const task = getCacheTask()
+
+    // 获取缓存的子账号列表
+    const dataLists = parseJSON(localStorage.getItem('accountList'), [])
+
+    // 找到子账号的索引
+    const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
+
+    createNotification(`子账号索引: ${childIndex}`, 'childIndex', task.dyUserId)
+
+    // 判断childIndex是否存在
+    if (childIndex === -1) {
+      $handleError('子账号没找到')
+      return
+    }
+
+    // 计算页码
+    const itemsPerPage = 5 // 每页显示的项目数
+    const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
+
+    // 进入对应页码
+    if (pageIndex > 1) {
+      await goToPage(pageIndex)
+    }
+
+    // 获取当前页面的table
+    await getChildAndClick()
+  } catch (error) {
+    $handleError(`点击跳转子账号页面中出现错误: ${JSON.stringify(error)}`)
+  }
+}
+// 找到子账号并点击跳转
+async function getChildAndClick() {
+  try {
+    currentAccountList.length = 0
+
+    const task = getCacheTask()
+    // 获取表格的tr
+    const rows = await waitForElement('.douyin-creator-pc-table-tbody tr', { isAll: true })
+    // 遍历所有的tr元素
+    rows.forEach((row, col) => {
+      // 创建一个空对象来保存每行的数据
+      const rowData = {}
+
+      // 获取当前行的所有td元素
+      const cells = row.querySelectorAll('td')
+
+      // 获取每个td中的数据，并存储到rowData对象中
+      rowData.avatar = cells[0].querySelector('img').src
+      rowData.name = cells[0].querySelector('p').textContent.trim()
+      rowData.dyAccountNo = cells[1].textContent.trim()
+      rowData.date = cells[2].textContent.trim()
+      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
+      rowData.sort = col
+
+      // 将rowData对象添加到dataList数组中
+      currentAccountList.push(rowData)
+    })
+
+    const showAccountList = currentAccountList.map((item) => item.name)
+    createNotification(showAccountList, '当前子账号列表')
+
+    // 获取accountList中id为ID的元素
+    const childAccount = currentAccountList.find((item) => item.dyAccountNo === task.dyUserId)
+    createNotification(childAccount, '子账号')
+    if (childAccount) {
+      // 点击子账号的操作按钮
+      createNotification('准备跳转子账号页面')
+      await simulateClick(childAccount.actions[0])
+    } else {
+      localStorage.setItem('taskStatus', '0')
+      $handleError('未找到子账号，请检查并重新同步账号')
+      reloadPage()
+    }
+  } catch (error) {
+    $handleError('getTable获取子账号具体位置失败：' + JSON.stringify(error))
   }
 }
 
 // 获取内容管理tab
 async function getContentTab(tab) {
   const element = await waitForElement('div[role="tablist"]', { isAll: true })
-  console.log(element, 'element-getContentTab')
+  createNotification(element, 'element-getContentTab')
   const tabs = element[0].querySelectorAll('div[role="tab"]', { isAll: true })
   // 成员管理
   const accountTab = tabs[0]
-  console.log(accountTab, 'accountTab')
+  createNotification(accountTab, 'accountTab')
   // 数据统计tab
   const dataTab = tabs[1]
-  console.log(dataTab, 'dataTab')
+  createNotification(dataTab, 'dataTab')
   // 内容管理tab
   const contentTab = tabs[2]
-  console.log(contentTab, 'contentTab')
+  createNotification(contentTab, 'contentTab')
   let tabToClick = null
   switch (tab) {
     case 'account':
@@ -228,606 +348,7 @@ async function getContentTab(tab) {
       break
   }
 
-  tabToClick && (await simulateClick(tabToClick))
-}
-
-// 获取chrome缓存的tabId
-async function getDouyinTabId() {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ action: 'getDouyinTabId' }, (response) => {
-      console.log('getDouyinTabId---response', response)
-      resolve(response)
-    })
-  })
-}
-
-async function pushTask() {
-  console.log('混剪点击了。pushTask')
-  createNotification('收到推送任务准备开始')
-  localStorage.setItem('taskStatus', '1')
-  getTask()
-}
-
-// 时间选择框操作 - 开始
-// 时间选择
-async function publishTimePickerSelect(_dateTime) {
-  const task = getCacheTask()
-  const t = _dateTime || task.sendTime
-
-  return new Promise(async (resolve, reject) => {
-    // 拆解dateTime
-    const [date, time] = t.split(' ')
-    console.log(date, 'date')
-    // 拆解年月日
-    const [year, month, day] = date.split('-')
-    console.log(year, month, day, 'year')
-    // 拆解时分
-    const [hour, minute] = time.split(':')
-    console.log(hour, minute, 'hour')
-
-    // 选择发布方式
-
-    // 如果发布时间为空或小于当前时间后的2小时内，则立即发布
-    if (!t || new Date(t).getTime() < new Date().getTime() + 2 * 60 * 60 * 1000) {
-      $handleError(task.sendTime + '----发布时间为空或小于当前时间后的2小时内，则立即发布')
-      await selectPublishType(false)
-      resolve(true)
-      return
-    }
-    await selectPublishType(true)
-    await delay(DELAY.DOM_DELAY)
-    // 打开日期选择器
-    await selectDateTime()
-    // 找到当前日期
-    const currentDateTime = await getCurrentDate()
-    if (currentDateTime === t) {
-      console.log('当前选择为dateTime日期，则匹配时间')
-      // 选择时间
-      await selectTime(hour, minute)
-      await delay(DELAY.DOM_DELAY)
-      resolve(true)
-    } else {
-      const currentYear = currentDateTime.split('-')[0]
-      const currentMonth = currentDateTime.split('-')[1]
-      console.log('当前选择不是dateTime日期，判断是否为当前年月')
-      console.log(currentYear, 'currentYear')
-      console.log(currentMonth, 'currentMonth')
-      console.log(month, 'month')
-      if (currentYear === year && currentMonth === month) {
-        console.log('年月相同，直接选择日期')
-        // 选择日期
-        await selectDate(day)
-        await delay(DELAY.DOM_DELAY)
-        // // 选择时间
-        await selectTime(hour, minute)
-        await delay(DELAY.DOM_DELAY)
-        resolve(true)
-      } else {
-        console.log('年月不同，先选择年月，再选择日期')
-        // 去掉月之前的0
-        const newMonth = month.replace(/^0+/, '')
-        // 选择年月
-        await selectMonth(year, newMonth)
-        await delay(DELAY.DOM_DELAY)
-        // 选择日期
-        await selectDate(day)
-        await delay(DELAY.DOM_DELAY)
-        // 选择时间
-        await selectTime(hour, minute)
-        await delay(DELAY.DOM_DELAY)
-        resolve(true)
-      }
-    }
-  })
-}
-
-// 选择定时发布或者立即发布
-async function selectPublishType(isTiming) {
-  console.log(isTiming, 'isTiming')
-  // 找到所有label标签
-  const labels = await waitForElement('label>span', { isAll: true })
-
-  if (labels && labels.length && isTiming) {
-    // 找到innerText为“定时发布”的label标签，点击定时发布
-    const label = Array.from(labels).find((item) => item.innerText === '定时发布')
-    console.log(label, 'label')
-    await simulateClick(label)
-  } else {
-    // 立即发布
-    const label = Array.from(labels).find((item) => item.innerText === '立即发布')
-    console.log(label, 'label')
-    await simulateClick(label)
-  }
-}
-
-// 选择定时发布后，点击日期选择器
-async function selectDateTime() {
-  // 打开日期选择器
-  const datePickerElement = await waitForElement('.semi-datepicker>.semi-datepicker-input')
-  console.log(datePickerElement, '日期选择器')
-  await simulateClick(datePickerElement)
-  console.log('点击日期选择器')
-}
-
-// 获取当前日期
-async function getCurrentDate() {
-  console.log('getCurrentDate-开始')
-  // 找到当前日期
-  const currentDate = await waitForElement('.semi-datepicker-day.semi-datepicker-day-today')
-
-  console.log(currentDate, 'currentDate')
-  // 获取属性title的值
-  const currentDateTime = currentDate.getAttribute('title')
-  console.log(currentDateTime, 'currentDate-title')
-  return currentDateTime
-}
-
-// 选择年月
-async function selectYearMonth(year, month) {
-  // 年月选择开始
-  const datePickerHeader = await waitForElement('.semi-datepicker-navigation-month>button')
-  console.log(datePickerHeader, 'datePickerHeader')
-  // 如果不是，则点击
-  await simulateClick(datePickerHeader)
-  //  年份列表
-  const yearMonthSelect = await waitForElement(
-    '.semi-scrolllist-body>.semi-scrolllist-item-wheel',
-    { isAll: true }
-  )
-  const yearList = yearMonthSelect[0].querySelectorAll('li')
-  console.log(yearList, 'yearList')
-  simulateWheelEvent(yearList, year)
-  await delay(3000)
-  // 月份列表
-  const monthList = yearMonthSelect[1].querySelectorAll('li')
-  console.log(monthList, 'monthList')
-  simulateWheelEvent(monthList, month)
-  await delay(DELAY.DOM_DELAY)
-  // 点击返回日期选择
-  const backBtn = await waitForElement('.semi-datepicker-yearmonth-header>button')
-  console.log(backBtn, 'backBtn')
-  await simulateClick(backBtn)
-  // 年月选择结束
-}
-
-async function selectMonth(year, month) {
-  const currentDate = new Date()
-  const targetDate = new Date(year, month - 1) // month is 1-based, JavaScript Date uses 0-based months
-
-  if (targetDate > currentDate) {
-    console.log('下个月')
-    const monthBtns = await waitForElement('.semi-datepicker-navigation button', {
-      isAll: true
-    })
-    console.log(monthBtns, 'monthBtns')
-    const nextMonthBtn = monthBtns[2] // assuming index 1 is the next month button
-    // 添加点击事件
-    await simulateClick(nextMonthBtn)
-    console.log(nextMonthBtn, 'nextMonthBtn')
-  }
-}
-
-// 选择日期
-async function selectDate(day) {
-  // 如果day是0开头，则去掉0
-  day = day.toString().replace(/^0/, '')
-  const dateList = await waitForElement('.semi-datepicker-month .semi-datepicker-day', {
-    isAll: true
-  })
-  console.log(dateList, 'dateList')
-  console.log(day, 'day')
-  // 找到dateList中的day
-  const dateElement = Array.from(dateList).find((element) => element.textContent.trim() === day)
-  console.log(dateElement, '日期')
-  await simulateClick(dateElement)
-}
-
-// 选择时间
-async function selectTime(hour, minute) {
-  // 时间选择按钮
-  const timePicker = await waitForElement('.semi-datepicker-switch-time')
-  console.log(timePicker, 'timePicker')
-  await simulateClick(timePicker)
-  // 时间列表
-  const selectList = await waitForElement('.semi-scrolllist-body>.semi-scrolllist-item-wheel', {
-    isAll: true
-  })
-  // 获取要触发双击事件的 li 元素
-  const hourList = selectList[0].querySelectorAll('li')
-  await simulateWheelEvent(hourList, hour)
-  await delay(DELAY.DOM_DELAY)
-  const minuteList = selectList[1].querySelectorAll('li')
-  await simulateWheelEvent(minuteList, minute)
-}
-
-// 时间选择框操作 - 结束
-
-// 保持登陆使用---重新加载table
-async function reloadTable() {
-  try {
-    // 获取最大页码
-    await getMaxPage()
-    // 如果不是最后一页，轮流跳转到最后一页
-    while (currentPage < maxPage) {
-      nextPage()
-      await delay(DELAY.PAGE_DELAY)
-    }
-    // 如果是最后一页，再次获取最大页码
-    await getMaxPage()
-    // 如果不是第一页，轮流跳转到第一页
-    while (currentPage > 1) {
-      prevPage()
-      await delay(DELAY.PAGE_DELAY)
-    }
-    // 如果是第一页，再次获取最大页码
-    await getMaxPage()
-    // 10秒后重新获取表格数据
-    await delay(DELAY.PAGE_DELAY)
-    reloadTable()
-  } catch (error) {
-    $handleError(error)
-  }
-}
-
-// 机构号-子账号列表操作-开始
-
-// 当前账号列表
-const currentAccountList = []
-// 创建一个空数组来保存收集到的数据
-const accountList = []
-// 记录当前页数
-let currentPage = 1
-// 记录最大页数
-let maxPage = 1
-// 重试次数
-let retryCount = 0
-// 最大重试次数
-const maxRetryCount = 5
-
-// 获取所有账号列表数据
-async function getTableAll() {
-  try {
-    // 获取表格的tbody元素
-    const table = document.querySelector('.douyin-creator-pc-table-tbody')
-    // 获取所有的tr元素
-    const rows = table.querySelectorAll('tr')
-
-    if (rows) {
-      // 遍历所有的tr元素
-      rows.forEach((row) => {
-        // 创建一个空对象来保存每行的数据
-        const rowData = {}
-
-        // 获取当前行的所有td元素
-        const cells = row.querySelectorAll('td')
-
-        // 获取每个td中的数据，并存储到rowData对象中
-        rowData.avatar = cells[0].querySelector('img').src
-        rowData.name = cells[0].querySelector('p').textContent.trim()
-        rowData.dyAccountNo = cells[1].textContent.trim()
-        rowData.date = cells[2].textContent.trim()
-
-        // 将rowData对象添加到dataList数组中
-        accountList.push(rowData)
-      })
-
-      // 打印收集到的数据
-      console.log(accountList, 'accountList')
-
-      if (accountList && accountList.length >= 5) {
-        // 获取最大页码
-        await getMaxPage()
-
-        // 递归调用获取下一页数据
-        if (currentPage < maxPage) {
-          createNotification('已获取子账号：' + accountList.length)
-          await nextPage()
-          await getTableAll()
-        } else {
-          console.log('所有页面的数据已获取完毕')
-          createNotification('所有页面的数据已获取完毕，准备同步')
-          syncAccount()
-        }
-      } else {
-        // 如果没有5个以上的子账号，直接同步
-        syncAccount()
-      }
-    } else {
-      createNotification('同步失败，未找到子账号列表')
-      throw new Error('未找到表格的tbody元素')
-    }
-  } catch (error) {
-    retryCount++
-    // 重新获取table
-    if (retryCount < maxRetryCount) {
-      await getTableAll()
-    } else {
-      console.error('重试次数已达上限')
-      $handleError(error)
-    }
-  }
-}
-
-// 获取机构号
-async function getMainAccountId() {
-  const accountElement = await waitForElement('#sub-app p', { isAll: true })
-  const mainAccountId = accountElement[0].innerText.trim()
-  return mainAccountId
-}
-
-// 同步账号信息
-async function syncAccount() {
-  const mainAccountId = await getMainAccountId()
-  // 去重
-  const params = [...new Set(accountList)].map((item) => {
-    return {
-      mainAccountId,
-      ...item
-    }
-  })
-  try {
-    // 调用接口传递给后台
-    const res = await $Request(API.syncAccountApi, {
-      params
-    })
-    localStorage.setItem('accountList', JSON.stringify(params))
-    console.log(res, '同步账号接口---res')
-    createNotification(`同步账号接口请求结束，本次同步账号：${params.length}个`)
-  } catch (error) {
-    $handleError(error)
-  }
-}
-
-// 获取子账号具体位置
-async function getTable(task) {
-  currentAccountList.length = 0
-  try {
-    // 获取表格的tbody元素
-    const table = document.querySelector('.douyin-creator-pc-table-tbody')
-    // 获取所有的tr元素
-    const rows = table.querySelectorAll('tr')
-    // 遍历所有的tr元素
-    rows.forEach((row, col) => {
-      // 创建一个空对象来保存每行的数据
-      const rowData = {}
-
-      // 获取当前行的所有td元素
-      const cells = row.querySelectorAll('td')
-
-      // 获取每个td中的数据，并存储到rowData对象中
-      rowData.avatar = cells[0].querySelector('img').src
-      rowData.name = cells[0].querySelector('p').textContent.trim()
-      rowData.dyAccountNo = cells[1].textContent.trim()
-      rowData.date = cells[2].textContent.trim()
-      rowData.actions = Array.from(cells[4].querySelectorAll('span'))
-      rowData.sort = col
-
-      // 将rowData对象添加到dataList数组中
-      currentAccountList.push(rowData)
-    })
-
-    // 打印收集到的数据
-    console.log(currentAccountList, '当前页面子账号列表')
-    if (currentAccountList && currentAccountList.length) {
-      // 获取accountList中id为ID的元素
-      const childAccount = currentAccountList.find((item) => item.dyAccountNo === task.dyUserId)
-      console.log(childAccount, 'childAccount')
-      if (childAccount) {
-        // 点击子账号的操作按钮
-        createNotification('准备跳转子账号页面')
-        await simulateClick(childAccount.actions[0])
-      } else {
-        localStorage.setItem('taskStatus', '0')
-        createNotification('未找到子账号，请检查并重新同步账号')
-        $handleError('未找到子账号')
-        reloadPage()
-      }
-    }
-  } catch (error) {
-    retryCount++
-    // 重新获取table
-    if (retryCount < maxRetryCount) {
-      await getTable()
-    } else {
-      console.error('重试次数已达上限')
-      $handleError(error)
-    }
-  }
-}
-
-// 获取最大页码数
-async function getMaxPage() {
-  // 获取分页器的元素
-  const pageDiv = await waitForElement(
-    '.douyin-creator-pc-page-item.douyin-creator-pc-page-item-small'
-  )
-  console.log(pageDiv, 'pageDiv')
-  if (pageDiv) {
-    // 获取div的文本内容
-    const pageText = pageDiv.innerText.trim()
-    currentPage = Number(pageText.split('/')[0])
-    maxPage = Number(pageText.split('/')[1])
-    console.log('currentPage', currentPage)
-    console.log('maxPage', maxPage)
-  } else {
-    $handleError('获取最大页码数失败')
-  }
-}
-
-// 点击上一页
-async function prevPage() {
-  // 如果当前页数不是1，就点击上一页
-  if (currentPage > 1) {
-    const prevPageButton = document.querySelector(
-      '.douyin-creator-pc-page-item.douyin-creator-pc-page-prev'
-    )
-    if (prevPageButton) {
-      await simulateClick(prevPageButton)
-      console.log('await simulateClick clicked')
-    } else {
-      $handleError('未找到上一页按钮')
-    }
-  } else {
-    console.log('已经是第一页')
-  }
-}
-
-// 点击下一页
-async function nextPage() {
-  if (currentPage < maxPage) {
-    const nextPageButton = document.querySelector(
-      '.douyin-creator-pc-page-item.douyin-creator-pc-page-next'
-    )
-    if (nextPageButton) {
-      await simulateClick(nextPageButton)
-      console.log('nextPageButton clicked')
-    } else {
-      $handleError('未找到下一页按钮')
-    }
-  } else {
-    console.log('已经是最后一页')
-  }
-}
-
-// 滚动并跳转到制定页码
-function goToPage(pageIndex = 1) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      await getMaxPage()
-      // pageIndex如果不是数字，转换为数字
-      pageIndex = Number(pageIndex)
-      console.log('跳转到：', pageIndex)
-      if (pageIndex < 1 || pageIndex > maxPage) {
-        console.error('页码超出范围')
-        $handleError('页码超出范围')
-        reject('页码超出范围')
-        return
-      }
-      const listElement = await waitForElement('.douyin-creator-pc-page-rest-list')
-      console.log(listElement, 'listElement')
-
-      // 滚动次数和每次滚动的步长
-      const pageHeight = 32 // 每页高度，单位像素
-      const scrollStep = pageHeight * 7 // 每次滚动7页的像素高度
-      let pageItem
-
-      // 如果页码小于等于7，直接点击
-      if (pageIndex <= 7) {
-        pageItem = await waitForElement(
-          `.douyin-creator-pc-page-rest-item[aria-label="${pageIndex}"]`,
-          { timeout: 1000 }
-        )
-        console.log(`找到第${pageIndex}页`, pageItem)
-        pageItem.click()
-        await delay(500)
-        console.log(`点击第${pageIndex}页`)
-        resolve(true)
-        return
-      }
-
-      // 模拟滚动找到指定页码
-      for (let i = 0; i < 20; i++) {
-        await simulateScroll(listElement, listElement.scrollTop + scrollStep, 500)
-        pageItem = await waitForElement(
-          `.douyin-creator-pc-page-rest-item[aria-label="${pageIndex}"]`,
-          { timeout: 500 }
-        ).catch(() => null)
-        if (pageItem) break
-      }
-
-      if (pageItem) {
-        console.log(`找到第${pageIndex}页`, pageItem)
-        pageItem.click()
-        await delay(500)
-        console.log(`点击第${pageIndex}页`)
-        resolve(true)
-      } else {
-        console.error(`未能找到第${pageIndex}页`)
-        $handleError(`未能找到第${pageIndex}页`)
-        resolve(false)
-      }
-    } catch (error) {
-      console.error(error)
-      $handleError(error)
-      reject(error)
-    }
-  })
-}
-
-// 机构号-子账号列表操作-结束
-
-// 点击管理跳转子账号页面
-async function goToChildPage() {
-  try {
-    // 进入成员管理tab
-    await getContentTab('account')
-    // 获取任务数据
-    const task = getCacheTask()
-    // 获取缓存的子账号列表
-    const dataLists = parseJSON(localStorage.getItem('accountList'), [])
-    // 找到子账号的索引
-    const childIndex = dataLists.findIndex((item) => item.dyAccountNo === task.dyUserId)
-
-    console.log(childIndex, 'childIndex')
-
-    // 判断childIndex是否存在
-    if (childIndex === -1) {
-      console.log('子账号没找到')
-      $handleError('子账号没找到')
-      taskFailed('子账号没找到')
-      return
-    }
-
-    // 计算页码
-    const pageIndex = Math.ceil((childIndex + 1) / itemsPerPage)
-
-    // 进入对应页码
-    if (pageIndex > 1) {
-      await jumpToPage(pageIndex)
-    }
-
-    // 获取当前页面的table
-    await getTable(task)
-  } catch (error) {
-    console.error('Error in goToChildPage:', error)
-    $handleError(error)
-    taskFailed('点击跳转子账号页面中出现错误', error)
-  }
-}
-
-// 自动化任务执行-开始
-
-// 获取要开始的任务
-async function getTask() {
-  try {
-    const mainAccountId = await getMainAccountId()
-    console.log(mainAccountId, 'mainAccountId')
-    if (!mainAccountId || mainAccountId === null || mainAccountId === 'null') {
-      createNotification('机构号错误，请先重新同步账号')
-      return
-    }
-
-    createNotification(mainAccountId + '：准备获取要开始的任务')
-    const res = await $Request(API.getTaskApi + '?mainAccountId=' + mainAccountId, {})
-    if (!res) {
-      localStorage.setItem('taskStatus', '0')
-      createNotification('没有新的任务')
-      return
-    }
-    localStorage.setItem('task', JSON.stringify(res))
-    // 进入子账号页面
-    goToChildPage()
-  } catch (error) {
-    localStorage.setItem('taskStatus', '0')
-    createNotification('开始任务失败：' + JSON.stringify(error))
-    $handleError(error)
-  }
-}
-
-// 获取缓存的task任务
-function getCacheTask() {
-  const task = parseJSON(localStorage.getItem('task'), {})
-  return task?.id ? task : {}
+  tabToClick && (await simulateClick(tabToClick, 0))
 }
 
 // 获取子页面上导航栏
@@ -837,7 +358,7 @@ async function toChildUploadPage() {
     const navListItems = await waitForElement('.semi-navigation-list li', { isAll: true })
     if (navListItems && navListItems.length) {
       await simulateClick(navListItems[1])
-      console.log('子页面上导航栏 clicked')
+      createNotification('子页面上导航栏 clicked')
     } else {
       $handleError('未找到子页面上导航栏')
       reloadPage()
@@ -850,16 +371,15 @@ async function toChildUploadPage() {
 
 // 通过接口获取文件路径
 async function uploadVideoFn() {
-  createNotification('准备上传视频')
-
-  // 获取任务数据
-  const task = getCacheTask()
-  const { filePath, videoName } = task
-
-  // 将autoFillFormCount初始化并放入缓存
-  localStorage.setItem('cacheAutoFillFormCount', 0)
-
   try {
+    createNotification('准备上传视频')
+
+    // 获取任务数据
+    const task = getCacheTask()
+    const { filePath, videoName } = task
+
+    // 将autoFillFormCount初始化并放入缓存
+    localStorage.setItem('cacheAutoFillFormCount', 0)
     const file = await urlToFile(filePath, videoName)
     // 获取上传按钮，并将file上传
     const inputElement = await waitForElement('input[type="file"][name="upload-btn"]', {
@@ -873,15 +393,14 @@ async function uploadVideoFn() {
       // 触发 change 事件以确保上传组件检测到文件
       const event = new Event('change', { bubbles: true })
       inputElement[0].dispatchEvent(event)
-
-      console.log('File uploaded successfully')
+      createNotification('文件上传成功')
       // 检查视频是否已经加载好
       checkUploadVideo()
     } else {
       $handleError('未找到上传按钮')
     }
   } catch (error) {
-    $handleError(error)
+    $handleError('未找到上传按钮' + JSON.stringify(error))
   }
 }
 
@@ -893,12 +412,12 @@ async function checkUploadVideo() {
     if (videoElement) {
       // 检查视频是否已经加载好
       if (videoElement.readyState >= 3) {
-        console.log('videoElement already loaded')
+        createNotification('videoElement already loaded')
         reloadPage()
       } else {
-        console.log('videoElement not yet loaded, adding event listener')
+        createNotification('videoElement not yet loaded, adding event listener')
         videoElement.addEventListener('loadeddata', async () => {
-          console.log('videoElement loadeddata')
+          createNotification('videoElement loadeddata')
           reloadPage()
         })
       }
@@ -916,23 +435,20 @@ async function checkUploadVideo() {
 
 // 视频加载完毕后写入缓存准备发布
 async function publishVideo(_videoElement) {
-  const task = getCacheTask()
   try {
+    const task = getCacheTask()
     // 检查是否需要重新写入缓存
     const cacheFlag = localStorage.getItem('isResetCache')
-    console.log(cacheFlag, 'cacheFlag')
 
     if (cacheFlag !== '1') {
       const flag = await autoFillForm()
       if (flag) {
         reloadPage()
       } else {
-        createNotification('表单自动填写失败')
         $handleError('表单自动填写失败')
       }
     } else {
       // 已经填写过表单，进行发布操作
-      console.log('表单已自动填写，进行发布操作')
       createNotification('表单已自动填写，进行发布操作')
 
       // 如果有封面，需要做封面操作
@@ -943,7 +459,7 @@ async function publishVideo(_videoElement) {
       await publishTimePickerSelect()
 
       // 点击发布按钮
-      console.log('点击发布按钮')
+      createNotification('点击发布按钮')
       const publishButtons = await waitForElement('button', { isAll: true })
       // 遍历按钮，查找内容为 "发布" 的按钮
       for (const button of publishButtons) {
@@ -956,10 +472,7 @@ async function publishVideo(_videoElement) {
       }
     }
   } catch (error) {
-    console.error('表单自动填写过程中出现错误:', error)
-    createNotification('表单自动填写过程中出现错误')
-    taskFailed('表单自动填写过程中出现错误', error)
-    $handleError(error)
+    $handleError('表单自动填写过程中出现错误' + JSON.stringify(error))
   }
 }
 
@@ -992,7 +505,7 @@ async function autoFillForm() {
       const cacheList = await getStorageKey()
       //
       if (cacheList && cacheList.length) {
-        console.log('获取缓存list', cacheList)
+        createNotification('获取缓存list', cacheList)
         cacheList.forEach((item) => {
           const cacheItem = localStorage.getItem(item)
           if (!cacheItem || cacheItem === 'null' || cacheItem === 'undefined') {
@@ -1028,13 +541,13 @@ async function autoFillForm() {
           localStorage.setItem(item, newData)
         })
       } else {
-        console.log('没有找到缓存')
+        createNotification('没有找到缓存')
         $handleError('没有找到缓存')
         return
       }
       // 如果有话题，需要做话题操作
       if (topicNames && topicNames.length && topicNames[cacheAutoFillFormCount] !== undefined) {
-        console.log('话题操作---' + topicNames[cacheAutoFillFormCount])
+        createNotification('话题操作---' + topicNames[cacheAutoFillFormCount])
         await topicOperation(topicNames[cacheAutoFillFormCount])
       }
 
@@ -1043,13 +556,13 @@ async function autoFillForm() {
         await poiOperation(task.task.poiAddressName)
       }
 
-      console.log('表单自动填写成功')
+      createNotification('表单自动填写成功')
 
-      // 如果autoFillCount不等于topicNames长度，继续填充，否则设置标志位，表明已经填写过表单
-      console.log(cacheAutoFillFormCount, 'cacheAutoFillFormCount')
-      console.log(topicNames.length, 'topicNames.length ')
       // 修改缓存的autoFillFormCount
       cacheAutoFillFormCount++
+      // 如果autoFillCount不等于topicNames长度，继续填充，否则设置标志位，表明已经填写过表单
+      createNotification(cacheAutoFillFormCount, 'cacheAutoFillFormCount')
+      createNotification(topicNames.length, 'topicNames.length ')
 
       if (cacheAutoFillFormCount != topicNames.length && topicNames.length > 0) {
         localStorage.setItem('cacheAutoFillFormCount', cacheAutoFillFormCount)
@@ -1060,9 +573,7 @@ async function autoFillForm() {
       }
       resolve(flag) // 返回成功标志
     } catch (error) {
-      console.error('autoFillForm 出现错误:', error)
-      $handleError(error)
-      taskFailed('autoFillForm 出现错误:', error)
+      $handleError('autoFillForm 出现错误:' + JSON.stringify(error))
       reject(error) // 返回错误信息
     }
   })
@@ -1071,15 +582,15 @@ async function autoFillForm() {
 // 话题操作
 async function topicOperation(txt) {
   const element = await waitForElement('.mention-suggest-mount-dom span', { isAll: true })
-  console.log(element, 'element', txt)
+  createNotification(element, 'element', txt)
   // 找到所有的span标签，如果是#则点击索引为0的span标签
   if (element && element.length) {
     const span = Array.from(element).find((item) => item.innerText === txt)
-    console.log(span, 'span')
+    createNotification(span, 'span')
     if (span) {
       // 找到span的父元素
       const parent = span.parentElement
-      console.log(parent, 'span---话题点击了')
+      createNotification(parent, 'span---话题点击了')
       await simulateClick(parent)
     }
   } else {
@@ -1091,7 +602,7 @@ async function topicOperation(txt) {
 async function poiOperation(txt) {
   await delay(DELAY.PAGE_DELAY)
   const select = await waitForElement('#douyin_creator_pc_anchor_jump .semi-select-selection')
-  console.log(select, 'select')
+  createNotification(select, 'select')
   // 下拉选择点击
   await simulateClick(select)
   // 找到input
@@ -1101,44 +612,139 @@ async function poiOperation(txt) {
   input.value = txt
   // 触发input的input事件
   input.dispatchEvent(new Event('input', { bubbles: true }))
-  console.log(input, 'input----dispatchEvent', txt)
+  createNotification(input, 'input----dispatchEvent', txt)
   await delay(DELAY.DOM_DELAY)
   // 找到popover-content
   const popoverContent = await waitForElement(
     '.semi-popover .semi-popover-content .semi-select-option-list .semi-select-option',
     { isAll: true }
   )
-  console.log(popoverContent, 'popoverContent')
+  createNotification(popoverContent, 'popoverContent')
   if (popoverContent && popoverContent.length) {
     // 点击第一个
 
     await simulateClick(popoverContent[0])
-    console.log(popoverContent[0], 'poi点击了')
+    createNotification(popoverContent[0], 'poi点击了')
   } else {
     $handleError('没有找到----poiOperation')
   }
 }
 
+// 选择上传封面图片
+async function choseCoverImage() {
+  createNotification('封面操作')
+  const element = await waitForElement('.content-upload-new svg', {
+    isAll: true
+  })
+  createNotification(element, 'element----choseCoverImage')
+  if (element && element.length) {
+    createNotification('找到封面图片上传')
+    await simulateClick(element[0].parentElement)
+    await choseCoverImageTab() // 使用 await 确保点击完成后再执行
+  } else {
+    $handleError('未找到封面图片上传')
+  }
+}
+
+// 上传封面图弹窗tab选择
+async function choseCoverImageTab() {
+  const element = await waitForElement('.semi-modal-body div', { isAll: true })
+  if (element && element.length) {
+    // textContent 为 '上传封面' 的元素
+    const tab = Array.from(element).find((item) => item.textContent === '上传封面')
+
+    createNotification('找到封面图片上传tab', tab)
+
+    await simulateClick(tab) // 使用 await 确保点击完成后再执行
+
+    // 上传封面图
+    // 找到semi-upload中的input且type=file的元素
+    const inputElement = await waitForElement('.semi-upload input[type="file"]', {
+      isAll: true
+    })
+    createNotification(inputElement, 'inputElement---封面图上传的input')
+    // 将url转换为file，然后上传
+    const task = getCacheTask()
+    const file = await urlToFile(task?.task?.coverPath)
+    const dataTransfer = new DataTransfer()
+    dataTransfer.items.add(file)
+    inputElement[0].files = dataTransfer.files
+    // 触发 change 事件以确保上传组件检测到文件
+    const event = new Event('change', { bubbles: true })
+    inputElement[0].dispatchEvent(event)
+    createNotification('封面图 File uploaded successfully')
+
+    // 找到canvas-container。检查元素下的子元素id为uploadCrop的canvas是否有值
+    const uploadCropElement = await waitForElement('.canvas-container #uploadCrop')
+    createNotification(uploadCropElement, 'uploadCropElement')
+    // 判断是否有值
+    if (uploadCropElement && uploadCropElement.toDataURL()) {
+      createNotification('uploadCropElement.toDataURL()', uploadCropElement.toDataURL())
+      // 点击确定按钮,有2个tab，一个是选取封面，一个是上传封面，需要倒序一下
+      const confirmButton = await waitForElement('.semi-modal-body button', { isAll: true })
+      createNotification(confirmButton, 'confirmButton')
+      // 倒序找到文字为完成的按钮
+      const confirm = Array.from(confirmButton)
+        .reverse()
+        .find((item) => item.textContent === '完成')
+      createNotification(confirm, 'confirm')
+      await simulateClick(confirm) // 使用 await 确保点击完成后再执行
+    } else {
+      $handleError('未找到uploadCropElement或者uploadCropElement.toDataURL()为空')
+    }
+  } else {
+    $handleError('未找到上传封面图弹窗tab选择')
+  }
+}
 // 发布成功后通知后台
 async function publishSuccess() {
   try {
     // 获取任务数据
     const task = getCacheTask()
-    console.log(task, 'task---publishSuccess')
-    const res = await $Request(API.updateAutoPublishTaskApi, {
+    await $Request(API.updateAutoPublishTaskApi, {
       params: {
         id: task.id
       }
     })
-    console.log(res, '发布成功接口---res')
 
     createNotification('发出发布成功接口请求，准备退出代运营状态')
+  } catch (error) {
+    $handleError('发布成功后通知后台出现错误' + JSON.stringify(error))
+  }
+}
+
+// 2. 开始任务 结束
+
+// 4. 保持登陆 开始
+
+// 保持登陆使用---重新加载table
+async function reloadTable() {
+  try {
+    // 获取最大页码
+    await getMaxPage()
+    // 如果不是最后一页，轮流跳转到最后一页
+    while (currentPage < maxPage) {
+      nextPage()
+      await delay(DELAY.PAGE_DELAY)
+    }
+    // 如果是最后一页，再次获取最大页码
+    await getMaxPage()
+    // 如果不是第一页，轮流跳转到第一页
+    while (currentPage > 1) {
+      prevPage()
+      await delay(DELAY.PAGE_DELAY)
+    }
+    // 如果是第一页，再次获取最大页码
+    await getMaxPage()
+    // 10秒后重新获取表格数据
+    await delay(DELAY.PAGE_DELAY)
+    reloadTable()
   } catch (error) {
     $handleError(error)
   }
 }
 
-// 自动化任务执行-结束
+// 4. 保持登陆 结束
 
 // 退出代运营状态-开始
 // 退出登录
@@ -1153,22 +759,21 @@ async function childLogout() {
       logoutButtonRect.x + logoutButtonRect.width / 2,
       logoutButtonRect.y + logoutButtonRect.height / 2
     )
-    console.log('logoutButton clicked')
+    createNotification('logoutButton clicked')
 
     await delay(DELAY.DOM_DELAY) // 等待下拉菜单出现
     const logout = await waitForElement('.semi-portal .logout')
-    console.log(logout)
+    createNotification(logout)
 
     if (logout) {
       await simulateClick(logout)
-      console.log('logout clicked')
+      createNotification('logout clicked')
     } else {
       // 重新进入子账号页面
       window.location.href = PAGE.childContentPage
     }
   } catch (error) {
-    console.error('Error during logout:', error)
-    $handleError(error)
+    $handleError('childLogout error' + JSON.stringify(error))
   }
 }
 

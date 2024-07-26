@@ -1,3 +1,6 @@
+// 最大错误次数
+var MAX_ERROR_COUNT = 5
+
 // 通用的调用接口方法
 function $Request(api = '', { options = {}, params = {} } = {}) {
   const requestURL = API.BaseUrl + api

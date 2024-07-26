@@ -1,9 +1,3 @@
-// 最大错误次数
-var MAX_ERROR_COUNT = 5
-
-// 每页的子账号数量
-const itemsPerPage = 5
-
 // 延迟时间设置
 const DELAY = {
   // DOM 操作延迟时间
@@ -15,8 +9,8 @@ const DELAY = {
 // 接口API
 const API = {
   // basicURL
-  // BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
-  BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
+  BaseUrl: 'https://wujie.top/chromePath/dev-api/videoclip',
+  // BaseUrl: 'https://bj.devwwd.site:449/dev-api/videoclip',
   // 获取任务task的api
   getTaskApi: '/admin/autopublishtask/getNoPublicData',
   // 同步账号的api
@@ -44,3 +38,18 @@ const PAGE = {
   // 测试页面
   systemPage: 'https://bj.devwwd.site'
 }
+
+// 是否多话题
+var isBatchTopic = false
+// 话题数量
+var batchTopicCount = 0
+// 话题名称列表
+var topicNames = []
+// 记录当前页数
+var currentPage = 1
+// 记录最大页数
+var maxPage = 1
+// 当前账号列表
+const currentAccountList = []
+// 创建一个空数组来保存收集到的数据
+const accountList = []
